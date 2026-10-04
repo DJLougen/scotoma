@@ -1,0 +1,81 @@
+# test_tpl.jsonl
+
+Recall = identifier touched by a redaction. Leak docs = documents with at least one identifier left untouched.
+
+Over-redaction = share of ordinary, non-identifier text that was redacted by mistake (a system that blacks out everything scores 100% recall).
+
+| system | recall | fully redacted | leak docs | over-redaction | precision | ms/doc |
+|---|---|---|---|---|---|---|
+| rules | 52.9 | 51.4 | 2932/3000 (97.7%) | 0.1% | 100.0 | 0.3 |
+| openmed | 92.3 | 82.6 | 1421/3000 (47.4%) | 0.4% | 98.7 | 34.8 |
+| rules+openmed | 96.4 | 90.8 | 828/3000 (27.6%) | 0.5% | 98.7 | 34.1 |
+
+## By domain (recall %)
+
+| | n | rules | openmed | rules+openmed |
+|---|---|---|---|---|
+| clinical | 7154 | 65.2 | 89.1 | 97.0 |
+| hr | 8682 | 46.1 | 97.4 | 97.6 |
+| legal | 9599 | 42.5 | 88.4 | 93.5 |
+| tax | 7647 | 62.2 | 94.4 | 98.3 |
+
+## By input mode (recall %)
+
+| | n | rules | openmed | rules+openmed |
+|---|---|---|---|---|
+| chat | 3579 | 27.9 | 86.0 | 88.6 |
+| dictated | 6449 | 58.8 | 87.1 | 96.6 |
+| ocr | 3095 | 47.8 | 93.5 | 96.3 |
+| written | 19959 | 56.3 | 94.9 | 97.8 |
+
+## By difficulty tag (recall %)
+
+| | n | rules | openmed | rules+openmed |
+|---|---|---|---|---|
+| chat | 3579 | 27.9 | 86.0 | 88.6 |
+| common_word_name | 1718 | 18.2 | 89.3 | 91.5 |
+| cue | 6175 | 67.1 | 87.5 | 98.7 |
+| fmt:dash | 209 | 95.2 | 99.5 | 100.0 |
+| fmt:dashed | 670 | 84.2 | 99.9 | 99.9 |
+| fmt:day_first | 620 | 84.4 | 99.4 | 100.0 |
+| fmt:dot | 205 | 95.1 | 98.5 | 100.0 |
+| fmt:initial | 1525 | 4.1 | 98.3 | 98.4 |
+| fmt:intl | 188 | 98.9 | 84.6 | 100.0 |
+| fmt:iso | 676 | 96.3 | 99.7 | 99.7 |
+| fmt:last_first_caps | 263 | 81.7 | 46.0 | 95.4 |
+| fmt:month_year | 633 | 82.3 | 99.1 | 99.2 |
+| fmt:named | 635 | 84.9 | 100.0 | 100.0 |
+| fmt:named_abbr | 674 | 85.0 | 100.0 | 100.0 |
+| fmt:numeric_short | 693 | 97.1 | 99.6 | 99.7 |
+| fmt:numeric_us | 649 | 96.1 | 100.0 | 100.0 |
+| fmt:paren | 198 | 97.5 | 81.8 | 99.0 |
+| fmt:partial | 626 | 83.5 | 98.9 | 98.9 |
+| fmt:plain | 195 | 32.3 | 99.0 | 100.0 |
+| fmt:space | 197 | 97.5 | 98.0 | 100.0 |
+| no_cue | 26907 | 49.6 | 93.4 | 95.9 |
+| ocr | 824 | 29.6 | 89.6 | 92.0 |
+| relative | 6470 | 34.1 | 96.8 | 97.4 |
+| repeat | 6626 | 24.8 | 95.4 | 97.4 |
+| single_name | 7656 | 30.6 | 95.2 | 96.4 |
+| spoken | 2446 | 96.0 | 78.9 | 96.7 |
+
+## By category (recall %)
+
+| | n | rules | openmed | rules+openmed |
+|---|---|---|---|---|
+| ACCOUNT | 1828 | 81.5 | 87.3 | 100.0 |
+| ADDRESS | 1014 | 83.0 | 99.8 | 99.8 |
+| AGE | 414 | 100.0 | 63.0 | 100.0 |
+| DATE | 7292 | 90.6 | 99.1 | 99.8 |
+| DEVICE | 258 | 100.0 | 76.0 | 100.0 |
+| EMAIL | 1647 | 100.0 | 95.7 | 100.0 |
+| ID | 1622 | 44.9 | 60.2 | 84.8 |
+| IP | 271 | 96.7 | 99.3 | 99.6 |
+| LICENSE | 401 | 0.0 | 28.4 | 28.4 |
+| LOCATION | 938 | 0.0 | 94.5 | 94.5 |
+| MRN | 525 | 61.7 | 73.3 | 95.8 |
+| NAME | 12233 | 24.2 | 95.4 | 97.2 |
+| ORG | 2498 | 0.0 | 91.7 | 91.7 |
+| PHONE | 1491 | 89.0 | 94.7 | 99.9 |
+| SSN | 379 | 96.6 | 100.0 | 100.0 |
+| URL | 271 | 100.0 | 100.0 | 100.0 |

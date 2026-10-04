@@ -1,0 +1,144 @@
++ cd /content/scotoma
++ export TOKENIZERS_PARALLELISM=false
++ TOKENIZERS_PARALLELISM=false
++ mkdir -p bench/data
++ python bench/generate.py --universe A --n 30000 --seed 7 --out bench/data/train_tpl.jsonl
+wrote 30000 documents to bench/data/train_tpl.jsonl
++ python bench/generate.py --universe A --n 2000 --seed 8 --out bench/data/dev_tpl.jsonl
+wrote 2000 documents to bench/data/dev_tpl.jsonl
++ python bench/generate.py --universe B --n 3000 --seed 1 --out bench/data/test_tpl.jsonl
+wrote 3000 documents to bench/data/test_tpl.jsonl
++ python scripts/prep_dataset.py nvidia/Nemotron-PII --split train --limit 50000 --out bench/data/nemo_train_raw.jsonl
+Generating train split:   0%|          | 0/100000 [00:00<?, ? examples/s]Generating train split:  15%|█▌        | 15000/100000 [00:00<00:00, 133098.99 examples/s]Generating train split:  37%|███▋      | 37000/100000 [00:00<00:00, 178728.14 examples/s]Generating train split:  59%|█████▉    | 59000/100000 [00:00<00:00, 194769.97 examples/s]Generating train split:  79%|███████▉  | 79000/100000 [00:00<00:00, 193286.67 examples/s]Generating train split: 100%|██████████| 100000/100000 [00:00<00:00, 196455.89 examples/s]Generating train split: 100%|██████████| 100000/100000 [00:00<00:00, 189736.43 examples/s]
+Generating test split:   0%|          | 0/100000 [00:00<?, ? examples/s]Generating test split:  22%|██▏       | 22000/100000 [00:00<00:00, 177323.79 examples/s]Generating test split:  45%|████▌     | 45000/100000 [00:00<00:00, 200657.20 examples/s]Generating test split:  68%|██████▊   | 68000/100000 [00:00<00:00, 208087.97 examples/s]Generating test split:  93%|█████████▎| 93000/100000 [00:00<00:00, 219950.09 examples/s]Generating test split: 100%|██████████| 100000/100000 [00:00<00:00, 213480.79 examples/s]
+first row: {"text": "On 2023-04-11T06:17:14, I was driving my vehicle, with vehicle identifier SJN2K54J71L234567, when I was involved in an auto accident. The vehicle with the license plate VLK 972 was also involved. My employment status is currently on leave.", "spans": [{"start": 3, "end": 22, "label": "date_time"}, {"start": 74, "end": 91, "label": "vehicle_identifier"}, {"start": 169, "end": 176, "label"
+wrote 50000 documents to bench/data/nemo_train_raw.jsonl
++ python scripts/prep_dataset.py nvidia/Nemotron-PII --split test --limit 4000 --out bench/data/nemo_test_raw.jsonl
+first row: {"text": "**Front of Card:**\n\nCardholder Name: Esther Solorzano\n\nMedical Record Number: 0009275364\n\nHealth Plan Beneficiary Number: IL-0003784561\n\n**Back of Card:**\n\nPhoto ID:\n\nExpiration Date:\n\nContact Information for Insurance Provider:\n\nMagnetic Strip or Embedded Chip:\n\nGroup Number:\n\nPlan Details:\n\n**Additional Information:**\n\nThis card is intended for use by the named 
+wrote 4000 documents to bench/data/nemo_test_raw.jsonl
++ ./target/release/scotoma convert bench/data/nemo_train_raw.jsonl bench/data/nemo_train.jsonl
+50000 documents, 374201 identifiers kept, 38202 non-identifier labels dropped
++ ./target/release/scotoma convert bench/data/nemo_test_raw.jsonl bench/data/nemo_test_all.jsonl
+4000 documents, 31169 identifiers kept, 3169 non-identifier labels dropped
++ head -n 2000 bench/data/nemo_test_all.jsonl
++ tail -n 2000 bench/data/nemo_test_all.jsonl
++ wc -l bench/data/dev_tpl.jsonl bench/data/nemo_dev.jsonl bench/data/nemo_test_all.jsonl bench/data/nemo_test.jsonl bench/data/nemo_test_raw.jsonl bench/data/nemo_train.jsonl bench/data/nemo_train_raw.jsonl bench/data/test_tpl.jsonl bench/data/train_tpl.jsonl
+     2000 bench/data/dev_tpl.jsonl
+     2000 bench/data/nemo_dev.jsonl
+     4000 bench/data/nemo_test_all.jsonl
+     2000 bench/data/nemo_test.jsonl
+     4000 bench/data/nemo_test_raw.jsonl
+    50000 bench/data/nemo_train.jsonl
+    50000 bench/data/nemo_train_raw.jsonl
+     3000 bench/data/test_tpl.jsonl
+    30000 bench/data/train_tpl.jsonl
+   147000 total
++ python scripts/fetch_model.py --out models/openmed
+2026-10-04 17:25:07.144924: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-10-04 17:25:07.216686: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Multiple distributions found for package optimum. Picked distribution: optimum
+optimum.exporters.tasks.get_diffusers_tasks_to_model_mapping method failed to import diffusers with the error below.Please make sure you have diffusers installed and compatible with your transformers version.
+
+Failed to import diffusers.pipelines.anyflow.pipeline_anyflow_far because of the following error (look up to see its traceback):
+cannot import name 'get_cached_repo_tree' from 'huggingface_hub' (/usr/local/lib/python3.13/dist-packages/huggingface_hub/__init__.py)
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.13/dist-packages/diffusers/utils/import_utils.py", line 1015, in _get_module
+    return importlib.import_module("." + module_name, self.__name__)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/usr/local/lib/python3.13/dist-packages/diffusers/pipelines/pipeline_utils.py", line 32, in <module>
+    from huggingface_hub import (
+    ...<8 lines>...
+    )
+ImportError: cannot import name 'get_cached_repo_tree' from 'huggingface_hub' (/usr/local/lib/python3.13/dist-packages/huggingface_hub/__init__.py)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.13/dist-packages/transformers/utils/import_utils.py", line 2317, in __getattr__
+    module = self._get_module(self._class_to_module[name])
+  File "/usr/local/lib/python3.13/dist-packages/transformers/utils/import_utils.py", line 2347, in _get_module
+    raise e
+  File "/usr/local/lib/python3.13/dist-packages/transformers/utils/import_utils.py", line 2345, in _get_module
+    return importlib.import_module("." + module_name, self.__name__)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/usr/local/lib/python3.13/dist-packages/optimum/exporters/onnx/__main__.py", line 28, in <module>
+    from optimum.exporters.onnx.convert import onnx_export_from_model
+  File "/usr/local/lib/python3.13/dist-packages/optimum/exporters/onnx/convert.py", line 38, in <module>
+    from optimum.exporters.onnx.utils import (
+    ...<3 lines>...
+    )
+  File "/usr/local/lib/python3.13/dist-packages/optimum/exporters/onnx/utils.py", line 25, in <module>
+    from optimum.exporters.utils import _get_submodels_and_export_configs
+  File "/usr/local/lib/python3.13/dist-packages/optimum/exporters/utils.py", line 46, in <module>
+    from diffusers import DiffusionPipeline
+  File "<frozen importlib._bootstrap>", line 1420, in _handle_fromlist
+  File "/usr/local/lib/python3.13/dist-packages/diffusers/utils/import_utils.py", line 1006, in __getattr__
+    value = getattr(module, name)
+  File "/usr/local/lib/python3.13/dist-packages/diffusers/utils/import_utils.py", line 1005, in __getattr__
+    module = self._get_module(self._class_to_module[name])
+  File "/usr/local/lib/python3.13/dist-packages/diffusers/utils/import_utils.py", line 1017, in _get_module
+    raise RuntimeError(
+    ...<2 lines>...
+    ) from e
+RuntimeError: Failed to import diffusers.pipelines.pipeline_utils because of the following error (look up to see its traceback):
+cannot import name 'get_cached_repo_tree' from 'huggingface_hub' (/usr/local/lib/python3.13/dist-packages/huggingface_hub/__init__.py)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.13/dist-packages/transformers/utils/import_utils.py", line 2317, in __getattr__
+    module = self._get_module(self._class_to_module[name])
+  File "/usr/local/lib/python3.13/dist-packages/transformers/utils/import_utils.py", line 2347, in _get_module
+    raise e
+  File "/usr/local/lib/python3.13/dist-packages/transformers/utils/import_utils.py", line 2345, in _get_module
+    return importlib.import_module("." + module_name, self.__name__)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1395, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/usr/local/lib/python3.13/dist-packages/optimum/onnxruntime/modeling.py", line 69, in <module>
+    from optimum.exporters.onnx import main_export
+  File "/usr/local/lib/python3.13/dist-packages/transformers/utils/import_utils.py", line 2320, in __getattr__
+    raise ModuleNotFoundError(
+        f"Could not import module '{name}'. Are this object's requirements defined correctly?"
+    ) from e
+ModuleNotFoundError: Could not import module 'main_export'. Are this object's requirements defined correctly?
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/content/scotoma/scripts/fetch_model.py", line 65, in <module>
+    main()
+    ~~~~^^
+  File "/content/scotoma/scripts/fetch_model.py", line 26, in main
+    from optimum.onnxruntime import ORTModelForTokenClassification
+  File "/usr/local/lib/python3.13/dist-packages/transformers/utils/import_utils.py", line 2320, in __getattr__
+    raise ModuleNotFoundError(
+        f"Could not import module '{name}'. Are this object's requirements defined correctly?"
+    ) from e
+ModuleNotFoundError: Could not import module 'ORTModelForTokenClassification'. Are this object's requirements defined correctly?

@@ -1,0 +1,61 @@
++ cd /content/scotoma
++ python bench/crosscheck_hf.py bench/data/nemo_test_raw.jsonl --model OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1 --last 2000 --out bench/results/crosscheck_openmed_nemotron.json
+2026-10-04 19:03:58.389966: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-10-04 19:03:58.459751: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+{
+ "model": "OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1",
+ "data": "bench/data/nemo_test_raw.jsonl",
+ "docs": 2000,
+ "protocol": "whitespace words, first-subtoken, BIO, conlleval entities, max_len 384",
+ "precision": 0.9215243825999749,
+ "recall": 0.915442092154421,
+ "micro_f1": 0.9184731679890048,
+ "touch_recall": 0.9592154420921544,
+ "gold_entities": 16060,
+ "words_dropped_by_truncation": 24558,
+ "most_missed_labels": [
+  [
+   "occupation",
+   327
+  ],
+  [
+   "country",
+   110
+  ],
+  [
+   "state",
+   97
+  ],
+  [
+   "company_name",
+   96
+  ],
+  [
+   "date",
+   92
+  ],
+  [
+   "time",
+   90
+  ],
+  [
+   "national_id",
+   62
+  ],
+  [
+   "phone_number",
+   35
+  ],
+  [
+   "email",
+   32
+  ],
+  [
+   "race_ethnicity",
+   30
+  ]
+ ]
+}
++ echo XC_DONE
+XC_DONE

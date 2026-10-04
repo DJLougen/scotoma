@@ -1,0 +1,81 @@
+{
+  "domain": "education",
+  "title": "Education records",
+  "basis": [
+    {
+      "cite": "FERPA, 20 U.S.C. 1232g; 34 CFR 99.3 (definition of personally identifiable information)",
+      "summary": "Covers the student's name, names of parents and family, address, personal identifiers such as SSN, student number or biometric record, indirect identifiers such as date and place of birth and mother's maiden name, and anything else that would let someone in the school community identify the student."
+    }
+  ],
+  "identifiers": [
+    {
+      "category": "NAME",
+      "kinds": [
+        "person"
+      ],
+      "treatment": "remove student, parent and family names"
+    },
+    {
+      "category": "ID",
+      "kinds": [
+        "student"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "SSN",
+      "kinds": [
+        "ssn"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "DATE",
+      "kinds": [
+        "dob"
+      ],
+      "treatment": "remove date of birth"
+    },
+    {
+      "category": "ADDRESS",
+      "kinds": [
+        "street"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "LOCATION",
+      "kinds": [
+        "city"
+      ],
+      "treatment": "remove place of birth"
+    },
+    {
+      "category": "PHONE",
+      "kinds": [
+        "phone"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "EMAIL",
+      "kinds": [
+        "email"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ORG",
+      "kinds": [
+        "organisation"
+      ],
+      "treatment": "remove school name where the class is small"
+    }
+  ],
+  "strict": true,
+  "caveats": [
+    "FERPA's last limb is contextual: a description that classmates would recognise counts, and no model detects that.",
+    "No generator templates exist for this domain yet; use bench/llm_generate.py."
+  ],
+  "note": "A starting point drawn from the cited texts, not legal advice. Have counsel confirm the list for your jurisdiction and use before relying on it."
+}

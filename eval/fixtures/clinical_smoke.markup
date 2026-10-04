@@ -1,0 +1,66 @@
+Patient: {{name|Eleanor Whitfield}}   DOB: {{date|04/09/1934}}   MRN: {{medical_record_number|7733-20194}}
+Admitted: {{date|2024-02-27}}   Discharged: {{date|March 3, 2024}}
+Attending: Dr. {{name|Samuel Okoye}}, MD   Phone: {{phone_number|(416) 555-0142}}   Fax: {{fax_number|416-555-0190}}
+Mrs. {{name|Whitfield}} is a {{age|91}}-year-old woman with exertional dyspnea. BP 148/92, strength 4/5.
+Her daughter {{name|Karen Whitfield}} ({{email|karen.w@example.net}}) will pick her up; home address is
+{{street_address|1187 Dufferin Street, Apt 4}}, {{city|Toronto}}, ON {{postcode|M6H 4B6}}. Member ID: {{health_plan_beneficiary_number|4482-719-330-KT}}.
+Pacemaker serial number: {{device_identifier|BSX-99201734}}. Follow up with {{name|Okoye}} on {{date|3/17}}.
+---
+{{name|Marcus}} came in again today complaining of the same knee pain. He says {{name|Delia}} drove him.
+Exam unchanged. Ibuprofen 400 mg TID, recheck in 2 weeks.
+---
+ED NOTE {{date|11/02/2023}} 22:14
+{{name|TRAN, MINH}} 67 y/o M, MRN {{medical_record_number|A0093817}}, brought by EMS from {{street_address|88 Harbour Sq}}.
+SSN on file {{ssn|518-22-9041}}. Insurance: Medicare, policy number {{health_plan_beneficiary_number|1EG4-TE5-MK73}}.
+Troponin 0.04, K 5.1, Cr 1.4. Admit to cardiology under Dr. {{name|Abimbola Adeyemi}}.
+---
+Telephone encounter. Spoke with patient's wife, {{name|Ruth}}, at {{phone_number|905-555-0177}}. She reports he fell on {{date|Tuesday, Jan 9}}.
+Advised to present to urgent care. She can also be reached at {{email|ruth.abramson1952@mail.example.com}}.
+---
+Radiology report. Accession #: {{account_number|RAD-20240311-8841}}. Exam date: {{date|11 Mar 2024}}.
+CT chest without contrast. Comparison: {{date|2023-09-14}}. 6 mm nodule right upper lobe, unchanged.
+Dictated by: {{name|Helen Papadakis}}, MD. Report available at {{url|https://pacs.stjosephs.example.org/view?id=8841}}.
+---
+Pt is a {{age|93}} yo retired machinist living alone in {{city|Sudbury}}. Hx of COPD, on 2 L home O2.
+Seen with his son {{name|Gilles}}. Next of kin: {{name|Gilles Tremblay}}, tel {{phone_number|+1 705 555 0123}}.
+---
+Hgb 9.8, MCV 72, ferritin 6. Start ferrous sulfate 325 mg daily. Colonoscopy referral placed.
+Pain 3/10. ECOG 1. May increase dose after 4 weeks if tolerated. Repeat CBC in 6-8 weeks.
+---
+Referral letter
+Re: {{name|Oluwaseun Bankole-Jones}}, date of birth {{date|17 August 1988}}, health number {{health_plan_beneficiary_number|9876-543-217-AB}}
+Dear Dr. {{name|Nakamura}}, thank you for seeing this 35 year old teacher from {{city|Mississauga}} with new onset seizures.
+She was seen at {{location|Credit Valley Hospital}} on {{date|June 2nd, 2024}}. Her partner {{name|Tolu}} witnessed the event.
+Sincerely, {{name|Fatima Rahimi}}, NP. License number: {{certificate_license_number|RN-7781204}}.
+---
+Operative note. Device: left hip prosthesis, lot number {{device_identifier|LT4420917}}, UDI {{device_identifier|00643169007222}}.
+Surgeon: {{name|James MacAllister}}. Assistant: {{name|P. Venkataraman}}. Date of surgery {{date|05/21/24}}.
+EBL 250 mL. No complications.
+---
+Billing inquiry from patient. Account number: {{account_number|4400198273}}. Card ending 4242; full card {{credit_debit_card|4242 4242 4242 4242}} was read aloud.
+Callback {{phone_number|212.555.0164}}. Mailing address: {{street_address|PO Box 1123}}, {{city|Albany}}, NY {{postcode|12207}}.
+---
+MVC trauma. Driver of a pickup, plate number {{license_plate|CKRT 482}}, VIN {{vehicle_identifier|1HGCM82633A004352}}. Driver's license: {{certificate_license_number|D6101-40706-60905}}.
+GCS 15. FAST negative. C-spine cleared. Police report filed by Officer {{name|Brandt}}.
+---
+Portal message from {{name|sanchez.l}} (IP {{ipv4|203.0.113.57}}, {{date|2024-06-01T09:12:44Z}}):
+"Hi, this is {{name|Lucia}}. Can I get my results emailed to {{email|lucia_sanchez@example.com}}? My number is {{phone_number|(647) 555 0155}}."
+---
+Psych intake. {{name|Jordan}} is a 24 y/o grad student. Lives with roommate {{name|Sam}} near {{location|Kensington Market}}.
+PHQ-9 17. Denies SI. Started sertraline 50 mg. Emergency contact: {{name|Dana Kowalski}}, {{phone_number|416 555 0109}}.
+---
+Mr. {{name|De la Cruz}} returns for diabetes follow-up. A1c 8.4 (was 9.1 in {{date|October 2023}}). Metformin 1000 mg BID.
+He works at the {{location|Stelco plant in Hamilton}} and missed his {{date|4/2}} appointment. Next visit {{date|July 15}}.
+---
+Pathology. Specimen #: {{account_number|S24-118820}}. Patient {{name|WHITE, GRACE M.}} DOB {{date|12/01/1949}}.
+Invasive ductal carcinoma, grade 2, ER+/PR+/HER2-. Margins negative. pT1c N0.
+---
+Home care visit at {{street_address|22 Rue Saint-Denis}}. Client's neighbour Mrs. {{name|Okafor}} let me in.
+Wound 2 x 3 cm, granulating. Dressing changed. Client turned {{age|101}} last {{date|March}}.
+---
+Called pharmacy ({{location|Shoppers on Bloor}}) re: warfarin. INR 3.8 on {{date|2/14/2024}}. Hold x1, resume 4 mg.
+Pharmacist {{name|Nguyen}} confirmed. Fax orders to {{fax_number|(416) 555-0131}}.
+---
+Genetics consult. Proband {{name|Aiyana Redcloud}}, sister {{name|Kimi}} and maternal aunt both BRCA1 positive.
+Biobank ID {{unique_id|BB-0042-77190}}. Fingerprint scan on file for portal login.
+Consent signed {{date|09-Feb-2024}}.

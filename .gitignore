@@ -1,0 +1,11 @@
+target/
+node_modules/
+app/src-tauri/gen/
+app/src-tauri/models/default/
+eval/*.jsonl
+!eval/fixtures/*.jsonl
+app/src-tauri/bin/scotoma-helper
+bench/data/
+models/
+.venv/
+.DS_Store

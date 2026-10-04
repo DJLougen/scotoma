@@ -1,0 +1,94 @@
++ cd /content/scotoma
++ export TOKENIZERS_PARALLELISM=false
++ TOKENIZERS_PARALLELISM=false
++ python train/train.py --train bench/data/dev_tpl.jsonl --dev bench/data/dev_tpl.jsonl --limit 300 --base microsoft/deberta-v3-small --out models/smoke --epochs 1 --batch 16
+2026-10-04 17:32:34.917844: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-10-04 17:32:34.994378: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/usr/local/lib/python3.13/dist-packages/transformers/convert_slow_tokenizer.py:566: UserWarning: The sentencepiece tokenizer that you are converting to a fast tokenizer uses the byte fallback option which is not implemented in the fast tokenizers. In practice this means that the fast version of the tokenizer can produce unknown tokens whereas the sentencepiece version would have converted these unknown tokens into a sequence of byte tokens matching the original piece of text.
+  warnings.warn(
+Some weights of DebertaV2ForTokenClassification were not initialized from the model checkpoint at microsoft/deberta-v3-small and are newly initialized: ['classifier.bias', 'classifier.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/content/scotoma/train/train.py:206: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
+  scaler.step(opt); scaler.update(); sched.step()
+/content/scotoma/train/train.py:119: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter has become the default. Learn more about the new export logic: https://docs.pytorch.org/docs/stable/onnx_export.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html
+  torch.onnx.export(wrapped, (ids, mask), path, dynamo=False, **kw)
+WARNING:root:Please consider to run pre-processing before quantization. Refer to example: https://github.com/microsoft/onnxruntime-inference-examples/blob/main/quantization/image_classification/cpu/ReadMe.md 
+300 train docs → 300 windows, 2000 dev docs → 2000 windows, device cuda, 141.3M params (1s to tokenise)
+epoch 1: loss 2.5029  dev token recall 0.4384 precision 0.9999 F2 0.4939  (11s)
+onnx check: max |torch - onnx| = 0.00000
+int8: 171.7 MB (fp32 565.8 MB), label agreement on probe 0.83
+done. app-loadable model in models/smoke  (best dev F2 0.4939)
++ ./target/release/scotoma eval bench/data/dev_tpl.jsonl --model models/smoke --no-rules
++ grep -E '^ALL|docs ·'
+ALL         17768    98.4    95.2    95.8  28941    79.4
+2000 docs · 261 with at least one identifier untouched · 5.9% of ordinary text redacted by mistake · 37.8 ms/doc · 9245 chars/s
++ echo SMOKE_OK
+SMOKE_OK
++ python train/train.py --train bench/data/train_tpl.jsonl bench/data/nemo_train.jsonl --dev bench/data/dev_tpl.jsonl bench/data/nemo_dev.jsonl --base microsoft/deberta-v3-small --out models/scotoma-v0 --epochs 3 --batch 32 --lr 5e-5
+2026-10-04 17:34:46.749321: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-10-04 17:34:46.821633: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/usr/local/lib/python3.13/dist-packages/transformers/convert_slow_tokenizer.py:566: UserWarning: The sentencepiece tokenizer that you are converting to a fast tokenizer uses the byte fallback option which is not implemented in the fast tokenizers. In practice this means that the fast version of the tokenizer can produce unknown tokens whereas the sentencepiece version would have converted these unknown tokens into a sequence of byte tokens matching the original piece of text.
+  warnings.warn(
+Some weights of DebertaV2ForTokenClassification were not initialized from the model checkpoint at microsoft/deberta-v3-small and are newly initialized: ['classifier.bias', 'classifier.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+/content/scotoma/train/train.py:206: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
+  scaler.step(opt); scaler.update(); sched.step()
+/content/scotoma/train/train.py:119: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter has become the default. Learn more about the new export logic: https://docs.pytorch.org/docs/stable/onnx_export.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html
+  torch.onnx.export(wrapped, (ids, mask), path, dynamo=False, **kw)
+WARNING:root:Please consider to run pre-processing before quantization. Refer to example: https://github.com/microsoft/onnxruntime-inference-examples/blob/main/quantization/image_classification/cpu/ReadMe.md 
+80000 train docs → 89677 windows, 2000 dev docs → 2173 windows, device cuda, 141.3M params (80s to tokenise)
+  ep 1 step 200/2803 loss 1.3131
+  ep 1 step 400/2803 loss 0.6953
+  ep 1 step 600/2803 loss 0.4774
+  ep 1 step 800/2803 loss 0.3663
+  ep 1 step 1000/2803 loss 0.2989
+  ep 1 step 1200/2803 loss 0.2541
+  ep 1 step 1400/2803 loss 0.2215
+  ep 1 step 1600/2803 loss 0.1967
+  ep 1 step 1800/2803 loss 0.1772
+  ep 1 step 2000/2803 loss 0.1621
+  ep 1 step 2200/2803 loss 0.1493
+  ep 1 step 2400/2803 loss 0.1386
+  ep 1 step 2600/2803 loss 0.1296
+  ep 1 step 2800/2803 loss 0.1220
+epoch 1: loss 0.1219  dev token recall 0.9893 precision 0.9952 F2 0.9905  (1316s)
+  ep 2 step 200/2803 loss 0.0218
+  ep 2 step 400/2803 loss 0.0185
+  ep 2 step 600/2803 loss 0.0173
+  ep 2 step 800/2803 loss 0.0168
+  ep 2 step 1000/2803 loss 0.0169
+  ep 2 step 1200/2803 loss 0.0168
+  ep 2 step 1400/2803 loss 0.0164
+  ep 2 step 1600/2803 loss 0.0164
+  ep 2 step 1800/2803 loss 0.0162
+  ep 2 step 2000/2803 loss 0.0162
+  ep 2 step 2200/2803 loss 0.0161
+  ep 2 step 2400/2803 loss 0.0160
+  ep 2 step 2600/2803 loss 0.0161
+  ep 2 step 2800/2803 loss 0.0162
+epoch 2: loss 0.0162  dev token recall 0.9902 precision 0.9948 F2 0.9911  (1278s)
+  ep 3 step 200/2803 loss 0.0123
+  ep 3 step 400/2803 loss 0.0121
+  ep 3 step 600/2803 loss 0.0120
+  ep 3 step 800/2803 loss 0.0118
+  ep 3 step 1000/2803 loss 0.0119
+  ep 3 step 1200/2803 loss 0.0118
+  ep 3 step 1400/2803 loss 0.0119
+  ep 3 step 1600/2803 loss 0.0119
+  ep 3 step 1800/2803 loss 0.0117
+  ep 3 step 2000/2803 loss 0.0118
+  ep 3 step 2200/2803 loss 0.0117
+  ep 3 step 2400/2803 loss 0.0117
+  ep 3 step 2600/2803 loss 0.0117
+  ep 3 step 2800/2803 loss 0.0117
+epoch 3: loss 0.0117  dev token recall 0.9914 precision 0.9939 F2 0.9919  (1278s)
+onnx check: max |torch - onnx| = 0.00001
+int8: 171.7 MB (fp32 565.8 MB), label agreement on probe 0.92
+done. app-loadable model in models/scotoma-v0  (best dev F2 0.9919)
++ rc=0
+++ date -u +%FT%TZ
++ echo 'TRAIN_RC=0 2026-10-04T18:41:08Z'
+TRAIN_RC=0 2026-10-04T18:41:08Z
++ exit 0

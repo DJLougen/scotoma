@@ -1,0 +1,107 @@
+{
+  "domain": "tax",
+  "title": "Tax preparation and accounting",
+  "basis": [
+    {
+      "cite": "Internal Revenue Code 7216 and Treas. Reg. 301.7216-1 to -3",
+      "summary": "Preparers may not disclose or use tax return information without consent. This covers ALL return information, not only identifiers."
+    },
+    {
+      "cite": "Gramm-Leach-Bliley Act, 15 U.S.C. 6801-6809; FTC Safeguards Rule, 16 CFR Part 314",
+      "summary": "Protects customers' nonpublic personal information held by financial institutions, which includes tax preparers."
+    },
+    {
+      "cite": "IRS Publication 4557",
+      "summary": "Safeguarding taxpayer data: practical security guidance for preparers."
+    }
+  ],
+  "identifiers": [
+    {
+      "category": "NAME",
+      "kinds": [
+        "person"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "SSN",
+      "kinds": [
+        "ssn",
+        "itin"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ID",
+      "kinds": [
+        "ein"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ACCOUNT",
+      "kinds": [
+        "account",
+        "routing",
+        "iban"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "DATE",
+      "kinds": [
+        "date",
+        "dob"
+      ],
+      "treatment": "birth dates: year only; other dates optional"
+    },
+    {
+      "category": "ADDRESS",
+      "kinds": [
+        "street"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "LOCATION",
+      "kinds": [
+        "city"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ZIP",
+      "kinds": [
+        "zip"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "PHONE",
+      "kinds": [
+        "phone"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "EMAIL",
+      "kinds": [
+        "email"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ORG",
+      "kinds": [
+        "organisation"
+      ],
+      "treatment": "remove employer and payer names"
+    }
+  ],
+  "strict": true,
+  "caveats": [
+    "Section 7216 protects the figures themselves (income, deductions). Removing identifiers does not by itself make a disclosure permitted.",
+    "Dollar amounts are left in place; combined with an employer name they can identify a taxpayer."
+  ],
+  "note": "A starting point drawn from the cited texts, not legal advice. Have counsel confirm the list for your jurisdiction and use before relying on it."
+}

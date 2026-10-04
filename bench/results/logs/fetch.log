@@ -1,0 +1,42 @@
++ cd /content/scotoma
++ python scripts/fetch_model.py --out models/openmed
+2026-10-04 17:30:35.970737: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-10-04 17:30:36.046551: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+/content/scotoma/scripts/fetch_model.py:37: DeprecationWarning: You are using the legacy TorchScript-based ONNX export. Starting in PyTorch 2.9, the new torch.export-based ONNX exporter has become the default. Learn more about the new export logic: https://docs.pytorch.org/docs/stable/onnx_export.html. For exporting control flow: https://pytorch.org/tutorials/beginner/onnx/export_control_flow_model_to_onnx_tutorial.html
+  torch.onnx.export(wrapped, args, str(path), dynamo=False, **kw)
+WARNING:root:Please consider to run pre-processing before quantization. Refer to example: https://github.com/microsoft/onnxruntime-inference-examples/blob/main/quantization/image_classification/cpu/ReadMe.md 
+exporting OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1 to ONNX ...
+onnx check: max |torch - onnx| = 0.00001
+106 labels: O, B-account_number, B-age, B-api_key, B-bank_routing_number, B-biometric_identifier, B-blood_type, B-certificate_license_number, B-city, B-company_name, B-coordinate, B-country ...
+quantising to int8 ...
+int8 label agreement with fp32 on probe: 1.00
+wrote models/openmed  (746 MB)
+check it:  scotoma eval eval/fixtures/clinical_smoke.jsonl --model models/openmed
++ ls -la models/openmed
+total 728964
+drwxr-xr-x 2 root root      4096 Oct  4 17:30 .
+drwxr-xr-x 3 root root      4096 Oct  4 17:30 ..
+-rw-r--r-- 1 root root      6326 Oct  4 17:30 config.json
+-rw-r--r-- 1 root root 566014757 Oct  4 17:30 model_fp32.onnx
+-rw-r--r-- 1 root root 171767122 Oct  4 17:30 model_quantized.onnx
+-rw-r--r-- 1 root root   8648864 Oct  4 17:30 tokenizer.json
++ ./target/release/scotoma eval eval/fixtures/clinical_smoke.jsonl --model models/openmed
++ tail -15
+PHONE           6   100.0   100.0   100.0      7   100.0
+PLAN            3   100.0   100.0   100.0      3   100.0
+SSN             1   100.0   100.0   100.0      1   100.0
+URL             1   100.0   100.0   100.0      1   100.0
+VEHICLE         2   100.0   100.0   100.0      2   100.0
+ZIP             2   100.0   100.0   100.0      2   100.0
+ALL            98   100.0    96.9    96.7    100    98.0
+
+18 docs · 0 with at least one identifier untouched · 0.6% of ordinary text redacted by mistake · 27.1 ms/doc · 7967 chars/s
+recall = span touched · full = every character redacted · chars = share of identifier characters redacted
+
+misses (first 3):
+  LOCATION  partial …set seizures. She was seen at ⟦Credit Valley Hospital⟧ on June 2nd, 2024. Her partne…
+  LOCATION  partial … 1000 mg BID. He works at the ⟦Stelco plant in Hamilton⟧ and missed his 4/2 appointmen…
+  LOCATION  partial …Called pharmacy (⟦Shoppers on Bloor⟧) re: warfarin. INR 3.8 on 2/1…
++ echo FETCH_DONE
+FETCH_DONE

@@ -1,0 +1,102 @@
+{
+  "domain": "hr",
+  "title": "Human resources",
+  "basis": [
+    {
+      "cite": "No single U.S. statute. State breach-notification laws; CCPA/CPRA (Cal. Civ. Code 1798.100 et seq.) for California employees; GDPR Art. 4(1) and Art. 9 for EU staff",
+      "summary": "Personal information generally means a name combined with a government ID, account number or similar; GDPR covers any information relating to an identifiable person, with special categories (health, ethnicity, union membership and others) given extra protection."
+    },
+    {
+      "cite": "ADA, 42 U.S.C. 12112(d)",
+      "summary": "Employee medical information must be kept confidential and separate from personnel files."
+    }
+  ],
+  "identifiers": [
+    {
+      "category": "NAME",
+      "kinds": [
+        "person"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ID",
+      "kinds": [
+        "employee"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "SSN",
+      "kinds": [
+        "ssn"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ACCOUNT",
+      "kinds": [
+        "account",
+        "routing",
+        "claim"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "DATE",
+      "kinds": [
+        "date",
+        "dob"
+      ],
+      "treatment": "birth dates: year only"
+    },
+    {
+      "category": "ADDRESS",
+      "kinds": [
+        "street"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "LOCATION",
+      "kinds": [
+        "city"
+      ],
+      "treatment": "optional"
+    },
+    {
+      "category": "ZIP",
+      "kinds": [
+        "zip"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "PHONE",
+      "kinds": [
+        "phone"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "EMAIL",
+      "kinds": [
+        "email"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ORG",
+      "kinds": [
+        "organisation"
+      ],
+      "treatment": "remove prior employers and referees' firms"
+    }
+  ],
+  "strict": true,
+  "caveats": [
+    "In a small team, a job title or a described incident identifies the person on its own.",
+    "Special-category details (health, religion, union membership) are not identifiers and are not removed, but may need separate handling."
+  ],
+  "note": "A starting point drawn from the cited texts, not legal advice. Have counsel confirm the list for your jurisdiction and use before relying on it."
+}

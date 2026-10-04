@@ -1,0 +1,36 @@
++ cd /content/scotoma
++ mkdir -p models/scotoma-v0-fp32
++ ln -sf ../scotoma-v0/model_fp32.onnx models/scotoma-v0-fp32/model.onnx
++ cp models/scotoma-v0/config.json models/scotoma-v0/tokenizer.json models/scotoma-v0-fp32/
++ python bench/run.py bench/data/nemo_test.jsonl --out bench/results/quant_nemotron --system ours_int8=models/scotoma-v0 --system ours_fp32=models/scotoma-v0-fp32
+running ours_int8 ...
+running ours_fp32 ...
+# nemo_test.jsonl
+
+Recall = identifier touched by a redaction. Leak docs = documents with at least one identifier left untouched.
+
+Over-redaction = share of ordinary, non-identifier text that was redacted by mistake (a system that blacks out everything scores 100% recall).
+
+| system | recall | fully redacted | leak docs | over-redaction | precision | ms/doc |
+|---|---|---|---|---|---|---|
+| ours_int8 | 98.5 | 98.3 | 99/2000 (5.0%) | 0.1% | 99.1 | 74.2 |
+| ours_fp32 | 99.1 | 99.0 | 61/2000 (3.0%) | 0.1% | 98.5 | 113.8 |
+
+full tables: bench/results/quant_nemotron/results.md   item responses: bench/results/quant_nemotron/responses.csv (12603 items x 2 systems)
++ python bench/run.py bench/data/test_tpl.jsonl --strict --out bench/results/quant_templates --system ours_int8=models/scotoma-v0 --system ours_fp32=models/scotoma-v0-fp32
+running ours_int8 ...
+running ours_fp32 ...
+# test_tpl.jsonl
+
+Recall = identifier touched by a redaction. Leak docs = documents with at least one identifier left untouched.
+
+Over-redaction = share of ordinary, non-identifier text that was redacted by mistake (a system that blacks out everything scores 100% recall).
+
+| system | recall | fully redacted | leak docs | over-redaction | precision | ms/doc |
+|---|---|---|---|---|---|---|
+| ours_int8 | 96.7 | 93.0 | 821/3000 (27.4%) | 0.5% | 97.9 | 31.5 |
+| ours_fp32 | 99.0 | 97.5 | 315/3000 (10.5%) | 1.4% | 95.8 | 49.1 |
+
+full tables: bench/results/quant_templates/results.md   item responses: bench/results/quant_templates/responses.csv (33082 items x 2 systems)
++ echo QUANT_DONE
+QUANT_DONE

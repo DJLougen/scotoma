@@ -1,0 +1,156 @@
+{
+  "domain": "clinical",
+  "title": "Clinical / health records",
+  "basis": [
+    {
+      "cite": "HIPAA Privacy Rule, 45 CFR 164.514(b)(2) (Safe Harbor)",
+      "summary": "Lists 18 identifier types that must be removed, and requires no actual knowledge that what remains could identify the person."
+    }
+  ],
+  "identifiers": [
+    {
+      "category": "NAME",
+      "kinds": [
+        "person"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ADDRESS",
+      "kinds": [
+        "street"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "LOCATION",
+      "kinds": [
+        "city"
+      ],
+      "treatment": "remove; state may stay"
+    },
+    {
+      "category": "ZIP",
+      "kinds": [
+        "zip"
+      ],
+      "treatment": "keep first 3 digits; 000 for sparsely populated prefixes"
+    },
+    {
+      "category": "DATE",
+      "kinds": [
+        "date",
+        "dob"
+      ],
+      "treatment": "keep year only; drop year too if it implies age over 89"
+    },
+    {
+      "category": "AGE",
+      "kinds": [
+        "age_over_89"
+      ],
+      "treatment": "pool as 90+"
+    },
+    {
+      "category": "PHONE",
+      "kinds": [
+        "phone"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "FAX",
+      "kinds": [
+        "fax"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "EMAIL",
+      "kinds": [
+        "email"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "SSN",
+      "kinds": [
+        "ssn"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "MRN",
+      "kinds": [
+        "mrn"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "PLAN",
+      "kinds": [
+        "plan"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ACCOUNT",
+      "kinds": [
+        "account",
+        "accession"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "LICENSE",
+      "kinds": [
+        "license"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "VEHICLE",
+      "kinds": [
+        "vin",
+        "plate"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "DEVICE",
+      "kinds": [
+        "device"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "URL",
+      "kinds": [
+        "url"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "IP",
+      "kinds": [
+        "ipv4"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "BIOMETRIC",
+      "kinds": [],
+      "treatment": "remove"
+    },
+    {
+      "category": "ID",
+      "kinds": [],
+      "treatment": "remove any other unique identifying number or code"
+    }
+  ],
+  "strict": false,
+  "caveats": [
+    "Rare conditions, occupations and events can identify a person without any listed identifier."
+  ],
+  "note": "A starting point drawn from the cited texts, not legal advice. Have counsel confirm the list for your jurisdiction and use before relying on it."
+}

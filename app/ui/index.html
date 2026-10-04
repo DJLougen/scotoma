@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scotoma</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top" data-tauri-drag-region>
+  <div class="brand">
+    <svg viewBox="0 0 1024 1024" aria-hidden="true"><path d="M132 512c96-170 226-256 380-256s284 86 380 256c-96 170-226 256-380 256S228 682 132 512z" fill="none" stroke="currentColor" stroke-width="64" stroke-linejoin="round"/><circle cx="512" cy="512" r="150" fill="currentColor"/><rect x="560" y="446" width="210" height="46" rx="12" class="blot"/></svg>
+    <span>Scotoma</span>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="clean" aria-selected="true">Clean</button>
+    <button role="tab" data-tab="restore" aria-selected="false">Restore</button>
+  </nav>
+  <div class="chips">
+    <span class="chip" id="engine" title="">rules</span>
+    <span class="chip" id="vault"><span id="vault-n">0</span> remembered <button id="forget" title="Wipe remembered originals from memory">forget</button></span>
+  </div>
+</header>
+
+<main id="clean" class="view">
+  <section class="pane">
+    <div class="pane-head">
+      <h2>Original</h2>
+      <span class="spacer"></span>
+      <button class="ghost" id="dictate" hidden title="Record, then transcribe with your speech command">Dictate</button>
+      <button class="ghost" id="capture" hidden title="Drag over text on screen; it is read on this machine">Capture</button>
+      <button class="ghost" id="paste" title="Paste the clipboard">Paste</button>
+      <button class="ghost" id="edit" hidden title="Edit the text">Edit</button>
+    </div>
+    <textarea id="input" spellcheck="false" placeholder="Paste a note here.&#10;&#10;Or copy text anywhere and press the hotkey: it lands here for review before anything is copied back."></textarea>
+    <div id="original" class="doc" hidden></div>
+    <div class="pane-foot hint" id="orig-hint">stays on this machine</div>
+    <div id="seltool" class="seltool" hidden>
+      <select id="selcat" aria-label="Identifier type"></select>
+      <button id="selgo">Redact selection</button>
+    </div>
+  </section>
+
+  <section class="pane">
+    <div class="pane-head">
+      <h2>What gets copied</h2>
+      <span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Replacement style">
+        <button data-mode="tag" aria-pressed="true" title="[NAME_1], [DATE_2:2024]. Safe Harbor-shaped, exactly reversible.">Tags</button>
+        <button data-mode="surrogate" aria-pressed="false" title="Realistic stand-in names, numbers and shifted dates.">Stand-ins</button>
+      </div>
+    </div>
+    <div id="cleaned" class="doc empty">Cleaned text appears here.</div>
+  </section>
+
+  <aside class="side">
+    <div class="tally">
+      <div class="num"><b id="n-on">0</b><span>replaced</span></div>
+      <div class="num warn" id="maybe-box"><b id="n-maybe">0</b><span>possible, left in</span></div>
+    </div>
+    <p class="note" id="maybe-note" hidden>Dashed items look like identifiers but fell below the threshold. Click one to redact it.</p>
+    <div id="bars" class="bars" aria-label="Replaced identifiers by type"></div>
+
+    <div class="controls">
+      <label class="row"><span>Sensitivity</span><input type="range" id="threshold" min="0.05" max="0.9" step="0.05"><output id="threshold-out"></output></label>
+      <label class="row check"><input type="checkbox" id="strict"><span>Strict: also redact organisations and occupations</span></label>
+      <label class="row check"><input type="checkbox" id="review"><span>Hotkey opens this review first</span></label>
+      <label class="col" id="speech-row" hidden><span>Speech model <small>local server URL (fastest) or a command that prints the transcript of <code>{audio}</code></small></span>
+        <input type="text" id="speech" spellcheck="false" placeholder="http://127.0.0.1:8080/inference"></label>
+    </div>
+
+    <button class="primary" id="approve" disabled>Copy cleaned text</button>
+    <p class="fine">A helper, not a guarantee. Read the right-hand pane before you paste it anywhere.</p>
+    <p class="keys"><kbd id="k-scrub"></kbd> clean selection or clipboard<br><kbd id="k-restore"></kbd> restore originals<span id="k-capture-row" hidden><br><kbd id="k-capture"></kbd> capture screen region</span><span id="k-hold-row" hidden><br><kbd id="k-dictate"></kbd> dictate, again to stop</span><br><kbd id="k-blank"></kbd> blank note · <kbd>esc</kbd> hide</p>
+  </aside>
+</main>
+
+<main id="restore" class="view" hidden>
+  <section class="pane">
+    <div class="pane-head"><h2>Reply with placeholders</h2><span class="spacer"></span><button class="ghost" id="rpaste">Paste clipboard</button></div>
+    <textarea id="rinput" spellcheck="false" placeholder="Paste the model's answer here. Placeholders and stand-ins that Scotoma created this session are swapped back."></textarea>
+  </section>
+  <section class="pane">
+    <div class="pane-head"><h2>With originals restored</h2><span class="hint" id="rcount"></span><span class="spacer"></span><button class="ghost" id="rcopy" disabled>Copy</button></div>
+    <div id="routput" class="doc empty">Restored text appears here.</div>
+  </section>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

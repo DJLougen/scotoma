@@ -1,0 +1,22 @@
+[package]
+name = "scotoma-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Clipboard PHI scrubber with review and reversible redaction"
+
+[features]
+default = ["onnx"]
+onnx = ["scotoma-core/onnx"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+scotoma-core = { path = "../../crates/core" }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

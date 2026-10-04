@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The review window may listen for events and call the app's own commands. It gets no file, shell, network or clipboard access of its own; the clipboard is only touched from Rust.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging"
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "domain": "legal",
+  "title": "Legal practice",
+  "basis": [
+    {
+      "cite": "Fed. R. Civ. P. 5.2(a); Fed. R. Crim. P. 49.1",
+      "summary": "Court filings may include only the last four digits of an SSN, taxpayer ID or financial account number, the year of birth, and a minor's initials. The criminal rule adds: city and state only of a home address."
+    },
+    {
+      "cite": "ABA Model Rule of Professional Conduct 1.6",
+      "summary": "A lawyer shall not reveal information relating to the representation of a client. This is far broader than identifiers."
+    }
+  ],
+  "identifiers": [
+    {
+      "category": "NAME",
+      "kinds": [
+        "person"
+      ],
+      "treatment": "remove; minors by initials only"
+    },
+    {
+      "category": "SSN",
+      "kinds": [
+        "ssn"
+      ],
+      "treatment": "last four digits at most"
+    },
+    {
+      "category": "ACCOUNT",
+      "kinds": [
+        "account",
+        "routing"
+      ],
+      "treatment": "last four digits at most"
+    },
+    {
+      "category": "DATE",
+      "kinds": [
+        "date",
+        "dob"
+      ],
+      "treatment": "birth dates: year only"
+    },
+    {
+      "category": "ADDRESS",
+      "kinds": [
+        "street"
+      ],
+      "treatment": "remove; city and state may stay"
+    },
+    {
+      "category": "ID",
+      "kinds": [
+        "docket",
+        "matter"
+      ],
+      "treatment": "remove: a docket number identifies the parties in a public search"
+    },
+    {
+      "category": "LICENSE",
+      "kinds": [
+        "bar",
+        "license"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "PHONE",
+      "kinds": [
+        "phone"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "EMAIL",
+      "kinds": [
+        "email"
+      ],
+      "treatment": "remove"
+    },
+    {
+      "category": "ORG",
+      "kinds": [
+        "organisation"
+      ],
+      "treatment": "remove party and firm names"
+    }
+  ],
+  "strict": true,
+  "caveats": [
+    "Privilege and Rule 1.6 attach to the facts of the matter. A memo with every name removed can still be confidential and identifiable from its facts.",
+    "Rule 5.2 is a filing rule; it says what a public filing may contain, not what may be shared with a third-party service."
+  ],
+  "note": "A starting point drawn from the cited texts, not legal advice. Have counsel confirm the list for your jurisdiction and use before relying on it."
+}
