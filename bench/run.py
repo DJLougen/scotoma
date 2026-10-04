@@ -5,15 +5,14 @@
         --system rules \\
         --system ours=models/scotoma-v0 \\
         --system rules+ours=models/scotoma-v0 \\
-        --system openmed=app/src-tauri/models/default
+        --system openmed=app/src-tauri/models/default \\
+        --system presidio@bench/preds/presidio.jsonl
 
-A system is `rules`, `NAME=MODEL_DIR` (model alone) or `rules+NAME=MODEL_DIR`.
+A system is `rules`, `NAME=MODEL_DIR` (model alone), `rules+NAME=MODEL_DIR`,
+`NAME@PREDS.jsonl` (precomputed spans replayed through eval --predictions,
+written by bench/predict_external.py), or `rules+NAME@PREDS.jsonl`.
 Any Hugging Face token-classification model exported to ONNX can be a system,
 so competitors are scored by exactly the same code as ours.
-
-Writes results.md (the comparison) and responses.csv (items x systems, with
-0 = missed, 1 = partly redacted, 2 = fully redacted) for IRT or any other
-item-level analysis. Standard library only.
 """
 import argparse, csv, json, os, subprocess, sys
 
@@ -39,8 +38,9 @@ def main():
     for spec in a.system:
         name, _, model = spec.partition("=")
         rules = name == "rules" or name.startswith("rules+")
+        name, _, preds = name.partition("@")
         cmd = [cli, "eval", a.data, "--json", "--misses", "0", "--responses", os.path.join(a.out, f".{name}.csv")]
-        cmd += ["--model", model] if model else ["--no-model"]
+        cmd += ["--predictions", preds, "--no-model"] if preds else (["--model", model] if model else ["--no-model"])
         if not rules: cmd.append("--no-rules")
         if a.strict: cmd.append("--strict")
         if a.threshold: cmd += ["--threshold", a.threshold]

@@ -9,6 +9,7 @@ pub mod labels;
 pub mod merge;
 #[cfg(feature = "onnx")]
 pub mod model;
+pub mod precomputed;
 pub mod rules;
 pub mod transform;
 
@@ -122,6 +123,12 @@ pub trait Detector: Send + Sync {
     fn name(&self) -> String;
     /// Returns (confident spans, sub-threshold candidates).
     fn detect(&self, text: &str, cfg: &Config) -> Result<(Vec<Span>, Vec<Span>), String>;
+    /// Like detect, but names the benchmark document being scored so
+    /// detectors that look spans up by id (PrecomputedDetector) can key by
+    /// it. Keeps the id inside the call — no shared state to race on.
+    fn detect_doc(&self, _id: Option<&str>, text: &str, cfg: &Config) -> Result<(Vec<Span>, Vec<Span>), String> {
+        self.detect(text, cfg)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,15 +179,24 @@ impl Scrubber {
     pub fn model_name(&self) -> Option<String> {
         self.model.as_ref().map(|m| m.name())
     }
+    /// Scores a benchmark document: detectors that serve precomputed spans
+    /// get the document id, so they can key by it instead of text.
+    pub fn detect_doc(&self, id: &str, text: &str) -> Result<Detection, String> {
+        self.detect_with(if id.is_empty() { None } else { Some(id) }, text)
+    }
 
     pub fn detect(&self, text: &str) -> Result<Detection, String> {
+        self.detect_with(None, text)
+    }
+
+    fn detect_with(&self, id: Option<&str>, text: &str) -> Result<Detection, String> {
         let (mut spans, mut possible) = if self.config.use_rules {
             (rules::detect(text), rules::suspicious(text))
         } else {
             (Vec::new(), Vec::new())
         };
         if let Some(m) = &self.model {
-            let (hit, maybe) = m.detect(text, &self.config)?;
+            let (hit, maybe) = m.detect_doc(id, text, &self.config)?;
             spans.extend(hit);
             possible.extend(maybe);
         }
@@ -224,4 +240,38 @@ pub fn utf16_to_byte(text: &str, pos16: usize) -> usize {
 /// Char offset → byte offset (datasets annotate in chars).
 pub fn char_to_byte(text: &str, pos: usize) -> usize {
     text.char_indices().nth(pos).map(|(b, _)| b).unwrap_or(text.len())
+}
+
+/// Tidy a raw span's edges: snap to UTF-8 boundaries, trim whitespace, grow
+/// to whole words so a partial hit never leaves half a surname behind, and
+/// drop spans that aren't identifiers (bare honorifics, ages under 90).
+/// Used by both the ONNX model and the precomputed-span replayer so external
+/// systems get the same post-processing as ours.
+pub fn tidy(text: &str, mut s: Span) -> Option<Span> {
+    while !text.is_char_boundary(s.start) { s.start -= 1; }
+    while !text.is_char_boundary(s.end) { s.end += 1; }
+    let raw = &text[s.start..s.end];
+    let lead = raw.len() - raw.trim_start().len();
+    let trail = raw.len() - raw.trim_end().len();
+    s.start += lead;
+    s.end -= trail;
+    if s.start >= s.end { return None; }
+    while let Some(ch) = text[..s.start].chars().next_back() {
+        if ch.is_alphanumeric() { s.start -= ch.len_utf8(); } else { break; }
+    }
+    while let Some(ch) = text[s.end..].chars().next() {
+        if ch.is_alphanumeric() { s.end += ch.len_utf8(); } else { break; }
+    }
+    // An honorific on its own ("Dr", "Mrs") identifies nobody; some models
+    // tag it as an occupation, which strict mode would then redact.
+    let bare = text[s.start..s.end].trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
+    if matches!(bare.as_str(), "dr" | "mr" | "mrs" | "ms" | "miss" | "mx" | "prof" | "doctor" | "sir" | "madam") {
+        return None;
+    }
+    // An age is only an identifier above 89.
+    if s.category == Category::Age {
+        let n: String = text[s.start..s.end].chars().filter(|c| c.is_ascii_digit()).collect();
+        if n.parse::<u32>().map(|n| n < 90).unwrap_or(true) { return None; }
+    }
+    Some(s)
 }

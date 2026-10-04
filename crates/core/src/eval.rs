@@ -150,7 +150,7 @@ pub fn evaluate(scrubber: &Scrubber, docs: &[GoldDoc], max_misses: usize) -> Res
     let t0 = std::time::Instant::now();
     for doc in docs {
         chars += doc.text.len();
-        let det = scrubber.detect(&doc.text)?;
+        let det = scrubber.detect_doc(&doc.id, &doc.text)?;
         let mut gold_regions: Vec<(usize, usize)> = Vec::new();
         let mut leaked = false;
         for (gi, g) in doc.spans.iter().enumerate() {

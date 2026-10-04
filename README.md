@@ -129,10 +129,11 @@ ordinary text: trained only on templates, it learned that anything unfamiliar is
 That is why over-redaction is in the table, and why template data alone cannot train or rank a real
 model. A pretrained backbone plus natural text (an open corpus, LLM-written documents) is required.
 
-Not measured yet: any real model (the default OpenMed model, or one trained with `train.py` on a
-pretrained backbone), anything on Nemotron-PII, ai4privacy or i2b2. The build environment could not
-reach huggingface.co. `train/colab.ipynb`, `bench/llm_generate.py`, `scripts/fetch_model.py` and
-`scripts/prep_dataset.py` have not been run.
+Since then (2026-10-04, Colab L4): the default OpenMed model and a DeBERTa-v3-small trained with
+`train.py` on templates plus Nemotron-PII have been scored on the template test and on Nemotron-PII.
+Trained this way, the model's over-redaction falls to 0.5%. Numbers, setup and caveats:
+[`bench/results/README.md`](bench/results/README.md). Still not measured: ai4privacy, i2b2, and
+LLM-written test documents. `bench/llm_generate.py` has not been run.
 
 ### Claiming a win honestly
 
@@ -150,9 +151,9 @@ Tested on Linux (Ubuntu 24.04, virtual display): unit tests, the ONNX path end t
 model, and the real app driven through hotkey → review → toggle → manual redaction → copy → restore.
 
 Not tested: macOS and Windows builds, tray behaviour and notifications on those platforms, the
-default `ort` static-link path (the Linux check linked ONNX Runtime dynamically), `fetch_model.py`
-and `prep_dataset.py`, and the Swift capture helper (the Rust side of capture was tested on Linux with
-a stand-in helper).
+default `ort` static-link path (the Linux check linked ONNX Runtime dynamically), and the Swift
+capture helper (the Rust side of capture was tested on Linux with a stand-in helper).
+`fetch_model.py`, `prep_dataset.py` and `train.py` have now run on Colab, and `fetch_model.py` also on macOS.
 
 ## Limits
 

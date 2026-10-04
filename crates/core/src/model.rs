@@ -6,7 +6,7 @@
 //! probabilities averaged, so nothing is truncated.
 
 use crate::labels::{map_label, Mapped};
-use crate::{Category, Config, Detector, Source, Span};
+use crate::{tidy, Category, Config, Detector, Source, Span};
 use ort::session::{builder::GraphOptimizationLevel, Session};
 use ort::value::Tensor;
 use std::path::{Path, PathBuf};
@@ -197,35 +197,9 @@ impl Detector for OnnxDetector {
         flush(&mut cur, &mut hits, &mut maybes);
 
         // Tidy edges: trim whitespace, then grow to whole words so a sub-word
-        // hit can never leave half a surname behind.
-        let tidy = |mut s: Span| -> Option<Span> {
-            while !text.is_char_boundary(s.start) { s.start -= 1; }
-            while !text.is_char_boundary(s.end) { s.end += 1; }
-            let raw = &text[s.start..s.end];
-            let lead = raw.len() - raw.trim_start().len();
-            let trail = raw.len() - raw.trim_end().len();
-            s.start += lead;
-            s.end -= trail;
-            if s.start >= s.end { return None; }
-            while let Some(ch) = text[..s.start].chars().next_back() {
-                if ch.is_alphanumeric() { s.start -= ch.len_utf8(); } else { break; }
-            }
-            while let Some(ch) = text[s.end..].chars().next() {
-                if ch.is_alphanumeric() { s.end += ch.len_utf8(); } else { break; }
-            }
-            // An honorific on its own ("Dr", "Mrs") identifies nobody; some models
-            // tag it as an occupation, which strict mode would then redact.
-            let bare = text[s.start..s.end].trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
-            if matches!(bare.as_str(), "dr" | "mr" | "mrs" | "ms" | "miss" | "mx" | "prof" | "doctor" | "sir" | "madam") {
-                return None;
-            }
-            // An age is only an identifier above 89.
-            if s.category == Category::Age {
-                let n: String = text[s.start..s.end].chars().filter(|c| c.is_ascii_digit()).collect();
-                if n.parse::<u32>().map(|n| n < 90).unwrap_or(true) { return None; }
-            }
-            Some(s)
-        };
-        Ok((hits.into_iter().filter_map(tidy).collect(), maybes.into_iter().filter_map(tidy).collect()))
+        // hit can never leave half a surname behind. Shared with the
+        // precomputed-span replayer via crate::tidy.
+        let fix = |s: Span| tidy(text, s);
+        Ok((hits.into_iter().filter_map(fix).collect(), maybes.into_iter().filter_map(fix).collect()))
     }
 }

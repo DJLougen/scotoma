@@ -1,11 +1,15 @@
 //! scotoma — scrub text on stdin, or benchmark the pipeline.
 //!
 //!   scotoma scrub  [--model DIR] [--surrogate] [--strict] [--threshold P] [--json] < note.txt
-//!   scotoma eval   DATA.jsonl [--model DIR] [--strict] [--threshold P] [--limit N] [--misses N] [--json]
-//!   scotoma sweep  DATA.jsonl --model DIR [--limit N]      # recall/precision vs threshold
+//!   scotoma eval   DATA.jsonl [--model DIR | --predictions PREDS.jsonl] [--strict] [--threshold P] [--limit N] [--misses N] [--json]
+//!   scotoma sweep  DATA.jsonl --model DIR [--limit N] [--thresholds 0.02,0.05,...] [--json]
 //!   scotoma convert IN.jsonl OUT.jsonl                # map any label set to Scotoma categories
 //!
-//! eval also takes: --no-rules (score the model alone), --responses FILE.csv (per-item outcomes)
+//! eval also takes: --no-rules (score the model alone), --responses FILE.csv (per-item outcomes).
+//! --predictions replays spans written by bench/predict_external.py (one JSONL line per
+//! document: {"id", "text", "spans":[{start,end,label}]}, char offsets); a missing document
+//! is an error. sweep --json prints [{"threshold","recall","full","chars","precision","leak_docs",
+//! "over_redaction"}, ...] and the text table gains an over-redaction column.
 
 use scotoma_core::transform::{render, Mode, Vault};
 use scotoma_core::{eval, Config, Scrubber};
@@ -22,12 +26,14 @@ struct Args {
     cfg: Config,
     path2: Option<String>,
     responses: Option<String>,
+    predictions: Option<String>,
+    thresholds: Option<Vec<f32>>,
 }
 
 fn parse() -> Result<Args, String> {
     let mut it = std::env::args().skip(1);
     let cmd = it.next().ok_or("usage: scotoma <scrub|eval|sweep> [options]")?;
-    let mut a = Args { cmd, path: None, model: std::env::var("SCOTOMA_MODEL").ok(), surrogate: false, json: false, limit: None, misses: 25, cfg: Config::default(), path2: None, responses: None };
+    let mut a = Args { cmd, path: None, model: std::env::var("SCOTOMA_MODEL").ok(), surrogate: false, json: false, limit: None, misses: 25, cfg: Config::default(), path2: None, responses: None, predictions: None, thresholds: None };
     while let Some(x) = it.next() {
         let mut val = |n: &str| it.next().ok_or(format!("{n} needs a value"));
         match x.as_str() {
@@ -41,6 +47,10 @@ fn parse() -> Result<Args, String> {
             "--threshold" => a.cfg.threshold = val("--threshold")?.parse().map_err(|_| "bad --threshold")?,
             "--limit" => a.limit = Some(val("--limit")?.parse().map_err(|_| "bad --limit")?),
             "--misses" => a.misses = val("--misses")?.parse().map_err(|_| "bad --misses")?,
+            "--predictions" => a.predictions = Some(val("--predictions")?),
+            "--thresholds" => a.thresholds = Some(val("--thresholds")?.split(',')
+                .map(|t| t.trim().parse::<f32>().map_err(|_| "bad --thresholds".to_string()))
+                .collect::<Result<Vec<f32>, String>>()?),
             s if !s.starts_with("--") && a.path.is_none() => a.path = Some(s.to_string()),
             s if !s.starts_with("--") && a.path2.is_none() => a.path2 = Some(s.to_string()),
             s => return Err(format!("unknown option {s}")),
@@ -52,6 +62,9 @@ fn parse() -> Result<Args, String> {
 fn scrubber(a: &Args) -> Result<Scrubber, String> {
     #[allow(unused_mut)]
     let mut sc = Scrubber::rules_only(a.cfg.clone());
+    if a.model.is_some() && a.predictions.is_some() {
+        return Err("use --model or --predictions, not both".into());
+    }
     if let Some(dir) = &a.model {
         #[cfg(feature = "onnx")]
         {
@@ -61,9 +74,12 @@ fn scrubber(a: &Args) -> Result<Scrubber, String> {
         #[cfg(not(feature = "onnx"))]
         return Err(format!("built without the onnx feature; cannot load {dir}"));
     }
+    if let Some(p) = &a.predictions {
+        let det = scotoma_core::precomputed::PrecomputedDetector::load(std::path::Path::new(p))?;
+        sc.set_model(Some(Box::new(det)));
+    }
     Ok(sc)
 }
-
 fn load(a: &Args) -> Result<Vec<eval::GoldDoc>, String> {
     let path = a.path.as_ref().ok_or("need a .jsonl path")?;
     let src = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
@@ -102,7 +118,13 @@ fn run() -> Result<(), String> {
             if a.json {
                 println!("{}", serde_json::to_string_pretty(&r).map_err(|e| e.to_string())?);
             } else {
-                println!("engine: rules{} · threshold {} · strict {}\n", sc.model_name().map(|n| format!(" + {n}")).unwrap_or_default(), sc.config.threshold, sc.config.strict);
+                let engine = match (sc.config.use_rules, sc.model_name()) {
+                    (true, Some(m)) => format!("rules + {m}"),
+                    (true, None) => "rules".into(),
+                    (false, Some(m)) => m,
+                    (false, None) => "nothing (no rules, no model)".into(),
+                };
+                println!("engine: {engine} · threshold {} · strict {}\n", sc.config.threshold, sc.config.strict);
                 print!("{}", eval::format_report(&r));
                 if !r.misses.is_empty() {
                     println!("\nmisses (first {}):", r.misses.len());
@@ -115,12 +137,35 @@ fn run() -> Result<(), String> {
         "sweep" => {
             let mut sc = scrubber(&a)?;
             let docs = load(&a)?;
-            println!("{:>9} {:>8} {:>8} {:>8} {:>10}", "threshold", "recall", "full", "prec", "leak docs");
-            for th in [0.05, 0.1, 0.2, 0.35, 0.5, 0.7, 0.9] {
+            let thresholds = a.thresholds.clone()
+                .unwrap_or_else(|| vec![0.05, 0.1, 0.2, 0.35, 0.5, 0.7, 0.9]);
+            let frac = |x: f64| if x.is_nan() { serde_json::Value::Null } else { serde_json::json!(x) };
+            let mut rows = Vec::new();
+            if !a.json {
+                println!("{:>9} {:>8} {:>8} {:>8} {:>10} {:>8}", "threshold", "recall", "full", "prec", "leak docs", "over-red");
+            }
+            for th in thresholds {
                 sc.config.threshold = th;
                 sc.config.floor = sc.config.floor.min(th);
                 let r = eval::evaluate(&sc, &docs, 0)?;
-                println!("{:>9.2} {:>8.1} {:>8.1} {:>8.1} {:>10}", th, r.overall.recall() * 100.0, r.overall.full_recall() * 100.0, r.overall.precision() * 100.0, r.docs_with_leak);
+                if a.json {
+                    rows.push(serde_json::json!({
+                        "threshold": th,
+                        "recall": frac(r.overall.recall()),
+                        "full": frac(r.overall.full_recall()),
+                        "chars": frac(r.overall.char_recall()),
+                        "precision": frac(r.overall.precision()),
+                        "leak_docs": r.docs_with_leak,
+                        "over_redaction": r.over_redaction,
+                    }));
+                } else {
+                    println!("{:>9.2} {:>8.1} {:>8.1} {:>8.1} {:>10} {:>8.1}", th,
+                        r.overall.recall() * 100.0, r.overall.full_recall() * 100.0,
+                        r.overall.precision() * 100.0, r.docs_with_leak, r.over_redaction * 100.0);
+                }
+            }
+            if a.json {
+                println!("{}", serde_json::to_string_pretty(&rows).map_err(|e| e.to_string())?);
             }
         }
         "convert" => {
