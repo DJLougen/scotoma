@@ -157,10 +157,16 @@ impl Detector for OnnxDetector {
         if ids.is_empty() { return Ok((Vec::new(), Vec::new())); }
         let probs: std::sync::Arc<Vec<f32>> = match &self.cache {
             Some(c) => {
-                if let Some(p) = c.lock().get(ids) { p.clone() } else {
-                    let p = std::sync::Arc::new(self.infer(ids)?);
-                    c.lock().insert(ids.to_vec(), p.clone());
-                    p
+                // Bind the lookup first: an `if let` on `c.lock()` would keep the
+                // guard alive into the else branch and deadlock on the insert.
+                let hit = c.lock().get(ids).cloned();
+                match hit {
+                    Some(p) => p,
+                    None => {
+                        let p = std::sync::Arc::new(self.infer(ids)?);
+                        c.lock().insert(ids.to_vec(), p.clone());
+                        p
+                    }
                 }
             }
             None => std::sync::Arc::new(self.infer(ids)?),
