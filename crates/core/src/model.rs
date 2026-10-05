@@ -26,6 +26,9 @@ pub struct OnnxDetector {
     name: String,
     /// `scotoma_threshold` from config.json: the model's recommended default.
     suggested: Option<f32>,
+    /// Optional per-text probability cache (benchmarks that score several
+    /// configurations of one model over the same documents run inference once).
+    cache: Option<Mutex<std::collections::HashMap<Vec<u32>, std::sync::Arc<Vec<f32>>>>>,
 }
 
 const CANDIDATES: &[&str] = &[
@@ -67,7 +70,8 @@ impl OnnxDetector {
         let prefix: Vec<i64> = ids[..lead].iter().map(|&x| x as i64).collect();
         let suffix: Vec<i64> = ids[ids.len() - trail..].iter().map(|&x| x as i64).collect();
 
-        let threads = std::thread::available_parallelism().map(|n| n.get().min(4)).unwrap_or(2);
+        let threads = std::env::var("SCOTOMA_THREADS").ok().and_then(|v| v.parse().ok())
+            .unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get().min(4)).unwrap_or(2));
         let mut builder = Session::builder().map_err(|e| e.to_string())?
             .with_optimization_level(GraphOptimizationLevel::Level3).map_err(|e| e.to_string())?
             .with_intra_threads(threads).map_err(|e| e.to_string())?;
@@ -81,7 +85,8 @@ impl OnnxDetector {
             .map(|s| s.to_string())
             .unwrap_or_else(|| dir.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "model".into()));
         let suggested = crate::cfg_threshold(&cfg);
-        Ok(OnnxDetector { session: Mutex::new(session), tokenizer, classes, prefix, suffix, inputs, window, stride: window / 6, name, suggested })
+        Ok(OnnxDetector { session: Mutex::new(session), tokenizer, classes, prefix, suffix, inputs, window, stride: window / 6, name, suggested,
+            cache: std::env::var("SCOTOMA_PROB_CACHE").ok().filter(|v| v == "1").map(|_| Mutex::new(Default::default())) })
     }
 
     /// Returns per-token class probabilities (row-major, tokens × classes).
@@ -150,7 +155,16 @@ impl Detector for OnnxDetector {
         let ids = enc.get_ids();
         let offsets = enc.get_offsets();
         if ids.is_empty() { return Ok((Vec::new(), Vec::new())); }
-        let probs = self.infer(ids)?;
+        let probs: std::sync::Arc<Vec<f32>> = match &self.cache {
+            Some(c) => {
+                if let Some(p) = c.lock().get(ids) { p.clone() } else {
+                    let p = std::sync::Arc::new(self.infer(ids)?);
+                    c.lock().insert(ids.to_vec(), p.clone());
+                    p
+                }
+            }
+            None => std::sync::Arc::new(self.infer(ids)?),
+        };
         let c = self.classes.len();
 
         // Per token: probability it is an identifier at all, and which kind.

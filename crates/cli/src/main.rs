@@ -37,6 +37,8 @@ struct Args {
     threshold_set: bool,
     path2: Option<String>,
     responses: Option<String>,
+    out_dir: Option<String>,
+    configs: Vec<String>,
     predictions: Option<String>,
     thresholds: Option<Vec<f32>>,
 }
@@ -44,7 +46,7 @@ struct Args {
 fn parse() -> Result<Args, String> {
     let mut it = std::env::args().skip(1);
     let cmd = it.next().ok_or("usage: scotoma <scrub|eval|sweep> [options]")?;
-    let mut a = Args { cmd, path: None, model: std::env::var("SCOTOMA_MODEL").ok(), surrogate: false, json: false, limit: None, misses: 25, cfg: Config::default(), threshold_set: false, path2: None, responses: None, predictions: None, thresholds: None };
+    let mut a = Args { cmd, path: None, model: std::env::var("SCOTOMA_MODEL").ok(), surrogate: false, json: false, limit: None, misses: 25, cfg: Config::default(), threshold_set: false, path2: None, responses: None, out_dir: None, configs: Vec::new(), predictions: None, thresholds: None };
     while let Some(x) = it.next() {
         let mut val = |n: &str| it.next().ok_or(format!("{n} needs a value"));
         match x.as_str() {
@@ -54,6 +56,8 @@ fn parse() -> Result<Args, String> {
             "--strict" => a.cfg.strict = true,
             "--no-rules" => a.cfg.use_rules = false,
             "--responses" => a.responses = Some(val("--responses")?),
+            "--out-dir" => a.out_dir = Some(val("--out-dir")?),
+            "--config" => a.configs.push(val("--config")?),
             "--json" => a.json = true,
             "--threshold" => { a.cfg.threshold = val("--threshold")?.parse().map_err(|_| "bad --threshold")?; a.threshold_set = true; }
             "--limit" => a.limit = Some(val("--limit")?.parse().map_err(|_| "bad --limit")?),
@@ -140,6 +144,30 @@ fn run() -> Result<(), String> {
                         println!("  {:<9} {} {}", m.category.tag(), if m.partial { "partial" } else { "MISSED " }, m.context);
                     }
                 }
+            }
+        }
+        "evalmany" => {
+            // evalmany DATA --model DIR --out-dir D --config NAME:THRESHOLD:rules|norules ...
+            // Scores several configurations of one model over the same data with a single
+            // inference pass (SCOTOMA_PROB_CACHE=1 is set automatically). Writes D/NAME.json
+            // (same as `eval --json`) and D/NAME.csv (same as --responses).
+            std::env::set_var("SCOTOMA_PROB_CACHE", "1");
+            let out = a.out_dir.clone().ok_or("evalmany needs --out-dir")?;
+            std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+            let mut sc = scrubber(&mut a)?;
+            let docs = load(&a)?;
+            for spec in a.configs.clone() {
+                let parts: Vec<&str> = spec.split(':').collect();
+                if parts.len() != 3 { return Err(format!("bad --config {spec}")); }
+                let th: f32 = parts[1].parse().map_err(|_| format!("bad threshold in {spec}"))?;
+                sc.config.set_threshold(th);
+                sc.config.use_rules = match parts[2] { "rules" => true, "norules" => false, x => return Err(format!("bad rules flag {x}")) };
+                let r = eval::evaluate(&sc, &docs, 0)?;
+                let mut csv = String::from("item,outcome\n");
+                for (id, o) in &r.responses { csv.push_str(&format!("{id},{o}\n")); }
+                std::fs::write(format!("{out}/{}.csv", parts[0]), csv).map_err(|e| e.to_string())?;
+                std::fs::write(format!("{out}/{}.json", parts[0]), serde_json::to_string_pretty(&r).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+                eprintln!("{}: {} docs, {} with a leak", parts[0], r.docs, r.docs_with_leak);
             }
         }
         "sweep" => {
