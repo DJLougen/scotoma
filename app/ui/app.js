@@ -134,14 +134,15 @@ async function refreshPreview() {
   const p = await invoke("preview", { text, spans });
   if (my !== seq) return;
   paint($("cleaned"), p.text, p.items, () => {});
-  listen("blank", () => {
+}
+
+listen("blank", () => {
   document.querySelector('.tabs button[data-tab="clean"]').click();
   ++seq; $("input").value = ""; reset(); setTimeout(() => $("input").focus(), 60);
 });
 if (mac()) document.body.classList.add("mac");
 invoke("status").then(applyStatus);
 invoke("pending").then((a) => { if (a && !text) { ++seq; show(a); } });
-}
 
 function show(analysis) {
   docMode = false;
