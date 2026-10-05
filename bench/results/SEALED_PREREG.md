@@ -42,3 +42,13 @@ Each system is scored alone and with our rules (`rules+X`), the same way as on d
 
 If the novel-format set reverses a result from the training-family-format set, both are reported and the claim is
 restricted accordingly.
+
+## Dev-matched thresholds (computed from `clin_sweeps/` before any sealed scoring)
+
+| system | threshold |
+|---|---|
+| OpenMed small | 0.02 |
+| OpenMed large (fp32) | 0.10 |
+| Stanford | 0.10 |
+
+These come from the rule above. `clin_sweeps/openmed-large.json` finished after the first commit of this file and before any sealed run.
