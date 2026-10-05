@@ -25,6 +25,11 @@ PHI redaction app for macOS (Tauri + Rust). It is
 table) fine-tuned to tag 21 HIPAA Safe-Harbor-style identifier categories, then
 exported to ONNX and quantized to per-channel int8.
 
+**Headline (sealed evaluation 3, pre-registered, 7,108 synthetic clinical notes, scored once):**
+rules + scotoma-small leaked **2** notes; rules + OpenMed-PII-SuperClinical-Large @0.10 leaked
+**26**. Exact two-sided McNemar p = 8.0 × 10⁻⁷. Per note it costs about 20 ms against about
+240 ms on a laptop CPU. Details and caveats are [below](#evaluation).
+
 <p align="center"><img src="assets/hero.png" alt="Sealed 3: 2 leaked notes out of 7,108 vs 26 for rules+OpenMed-large@0.10" width="900"></p>
 
 <p align="center"><img src="assets/before_after.png" alt="rendered clinical note before and after scotoma redact-file" width="900"><br>
@@ -40,14 +45,14 @@ exported to ONNX and quantized to per-channel int8.
 | Latency | ~20 ms per clinical note on an Apple M3 Max CPU (measured through ONNX Runtime) |
 | Quantized weights sha256 | `33be24386b0bbdb2758a86087140f7a4a93bd21923a85fe20085bf611ba87e41` |
 
-**Nothing leaves the machine.** In the Scotoma app this model runs inside a
+**Nothing leaves the machine.** In Scrub N Paste this model runs inside a
 local ONNX Runtime; there is no network path in the inference code.
 
 ## Intended use
 
 - Finding HIPAA Safe-Harbor identifiers in English clinical-style prose, as the
-  learned half of a redaction system. Scotoma pairs it with a deterministic
-  rules engine; the shipped configuration is **rules + this model**, with a
+  learned half of a redaction system. Scrub N Paste pairs it with the
+  deterministic Scotoma rules engine; the shipped configuration is **rules + this model**, with a
   review screen before anything is copied out.
 - Direct ONNX inference in your own pipeline (see below).
 
@@ -59,17 +64,21 @@ local ONNX Runtime; there is no network path in the inference code.
 - Real clinical corpora. Every benchmark number below is on **synthetic**
   notes written by an LLM with planted identifiers. Performance on real
   clinical text (e.g. i2b2/n2c2) has **not** been measured yet.
-- Non-English text; handwritten/table-heavy documents; redacting images.
+- Non-English text; handwritten or table-heavy documents.
+- Images on their own. The model reads text only. When the app redacts a screenshot, image or PDF,
+  it runs on-device OCR first, so OCR misreads carry through.
 
 ## How to use
 
-### In Scotoma
+### In Scrub N Paste
 
-The app bundles this model. Hotkeys: ⌘⌥S redact selection/clipboard, ⌘⌥R
+[Scrub N Paste](https://github.com/DJLougen/scotoma) (macOS) bundles this model. Hotkeys: ⌘⌥S redact selection/clipboard, ⌘⌥R
 restore originals, ⌘⌥D capture a screen region and redact via on-device OCR,
 ⌘⌥N blank note, ⌘⌥V dictate. Output renders either as `[CATEGORY_N]` tags or
 as realistic stand-ins, and a review screen shows the redacted text before you
-copy it. A CLI (`scotoma`) exposes the same engine.
+copy it. **Open file…** redacts an image or PDF. It writes a new image-only copy with
+solid black boxes, and no hidden text layer. A CLI (`scotoma`) exposes the same engine,
+including `scotoma redact-file IN OUT`.
 
 ### Plain onnxruntime
 
@@ -167,7 +176,52 @@ at least one identifier left untouched — under the constraint that
 **over-redaction** (share of ordinary text redacted) stays ≤ 1%. Sealed sets
 are generated first and scored exactly once under a committed pre-registration.
 
-### Sealed evaluation 2 (860 notes per set; prior model v1-small + rules)
+> **Naming:** scotoma-small was called `v2-small` during development. The pre-registrations and logs under
+> `bench/results/` (SEALED3_PREREG.md, SEALED3_LOG.md) use that name; it is the same file (sha256 `33be2438…87e41`).
+
+### Sealed evaluation 3 (7,108 notes per set; **this model**, scotoma-small + rules)
+
+A powered re-match vs rules+OpenMed-large@0.1, pre-registered before scoring
+(exact two-sided McNemar on per-note leak indicators, α = 0.05; secondary tests
+listed in `SEALED3_PREREG.md`). Final, 2026-10-05:
+
+| system | familiar formats (clin3) | novel formats (clin3_novel) |
+|---|---|---|
+| scotoma-small alone | 4 leaked notes (0.06%) | 3 leaked notes (0.04%) |
+| rules + scotoma-small | **2 leaked notes (0.03%)** | **1 leaked note (0.01%)** |
+| OpenMed-large @0.1 alone | 407 leaked notes (5.7%) | 210 leaked notes (3.0%) |
+| rules + OpenMed-large @0.1 | 26 leaked notes (0.37%) | 33 leaked notes (0.46%) |
+| OpenMed-large @0.35 alone (secondary) | 680 leaked notes (9.6%) | 495 leaked notes (7.0%) |
+| rules + OpenMed-large @0.35 (secondary) | 101 leaked notes (1.4%) | 140 leaked notes (2.0%) |
+
+- Primary verdict: **significant win** — rules + scotoma-small vs rules + OpenMed-large@0.1 on
+  clin3, discordant notes 1 vs 25 (both leaked on 1), exact two-sided McNemar
+  p = 8.0 × 10⁻⁷. All secondary comparisons are also significant wins
+  (p ≤ 8.0 × 10⁻²⁹).
+- Bootstrap CI of the difference: +0.3 percentage points, 95% CI [+0.2, +0.5].
+- Over-redaction (must be ≤ 1%): ours 0.1% alone, 0.2% with rules;
+  OpenMed-large 0.1–0.3% alone, 0.3–0.5% with rules.
+- Latency: ~20 ms/note for scotoma-small vs ~240 ms/note for OpenMed-large on an
+  M3 Max CPU; per-note CPU cost measured on a 20-core ARM Linux workstation
+  was ~0.2 s vs ~4 s (some sealed-3 runs ran off-Mac at the same commit and
+  sha256, with exact dev parity — see `SEALED3_LOG.md`).
+
+Pre-registered dev-set selection (clin2_dev + clin2_novel_dev, rules + model
+@0.02): v1-small leaked 6 notes total (4 + 2), v2-small (released as scotoma-small) leaked 2 (2 + 0) with
+over-redaction ≤ 0.2% — so it is the "ours" candidate.
+
+<p align="center">
+<img src="assets/progress.png" alt="Sealed 1 → 2 → 3 vs rules+OpenMed-large@0.10: lost, tied, won" width="540">&nbsp;
+<img src="assets/speed_vs_leaks.png" alt="ms per note vs leak-document rate on the same CPU" width="540">
+</p>
+
+<details>
+<summary>Per-category recall (clin3, ours vs OpenMed-large@0.10)</summary>
+
+<img src="assets/categories.png" alt="Recall heatmap by identifier category" width="880">
+</details>
+
+### Sealed evaluation 2: the full field (860 notes per set; previous model v1-small)
 
 | system | familiar formats, alone | novel formats, alone | + Scotoma rules, familiar | + Scotoma rules, novel | over-redaction | ms/note (CPU) |
 |---|---|---|---|---|---|---|
@@ -197,51 +251,6 @@ sealed evaluation 1 (874 notes, v0 model) was a significant loss to
 OpenMed-large@0.1+rules (1.9%/1.7% vs 0.5%) — that result drove the v1
 training-data work.
 
-> **Naming:** scotoma-small was called `v2-small` during development. The pre-registrations and logs under
-> `bench/results/` (SEALED3_PREREG.md, SEALED3_LOG.md) use that name; it is the same file (sha256 `33be2438…87e41`).
-
-### Sealed evaluation 3 (7,108 notes per set; **this model**, scotoma-small + rules)
-
-A powered re-match vs rules+OpenMed-large@0.1, pre-registered before scoring
-(exact two-sided McNemar on per-note leak indicators, α = 0.05; secondary tests
-listed in `SEALED3_PREREG.md`). Final, 2026-10-05:
-
-| system | familiar formats (clin3) | novel formats (clin3_novel) |
-|---|---|---|
-| scotoma-small alone | 4 leaked notes (0.06%) | 3 leaked notes (0.04%) |
-| rules + scotoma-small | **2 leaked notes (0.03%)** | **1 leaked note (0.01%)** |
-| OpenMed-large @0.1 alone | 407 leaked notes (5.7%) | 210 leaked notes (3.0%) |
-| rules + OpenMed-large @0.1 | 26 leaked notes (0.37%) | 33 leaked notes (0.46%) |
-| OpenMed-large @0.35 alone (secondary) | 680 leaked notes (9.6%) | 495 leaked notes (7.0%) |
-| rules + OpenMed-large @0.35 (secondary) | 101 leaked notes (1.4%) | 140 leaked notes (2.0%) |
-
-- Primary verdict: **significant win** — rules+v2 vs rules+OpenMed-large@0.1 on
-  clin3, discordant notes 1 vs 25 (both leaked on 1), exact two-sided McNemar
-  p = 8.0 × 10⁻⁷. All secondary comparisons are also significant wins
-  (p ≤ 8.0 × 10⁻²⁹).
-- Bootstrap CI of the difference: +0.3 percentage points, 95% CI [+0.2, +0.5].
-- Over-redaction (must be ≤ 1%): ours 0.1% alone, 0.2% with rules;
-  OpenMed-large 0.1–0.3% alone, 0.3–0.5% with rules.
-- Latency: ~20 ms/note for scotoma-small vs ~240 ms/note for OpenMed-large on an
-  M3 Max CPU; per-note CPU cost measured on a 20-core ARM Linux workstation
-  was ~0.2 s vs ~4 s (some sealed-3 runs ran off-Mac at the same commit and
-  sha256, with exact dev parity — see `SEALED3_LOG.md`).
-
-Pre-registered dev-set selection (clin2_dev + clin2_novel_dev, rules + model
-@0.02): v1-small leaked 6 notes total (4 + 2), v2-small (released as scotoma-small) leaked 2 (2 + 0) with
-over-redaction ≤ 0.2% — so it is the "ours" candidate.
-
-<p align="center">
-<img src="assets/progress.png" alt="Sealed 1 → 2 → 3 vs rules+OpenMed-large@0.10: lost, tied, won" width="540">&nbsp;
-<img src="assets/speed_vs_leaks.png" alt="ms per note vs leak-document rate on the same CPU" width="540">
-</p>
-
-<details>
-<summary>Per-category recall (clin3, ours vs OpenMed-large@0.10)</summary>
-
-<img src="assets/categories.png" alt="Recall heatmap by identifier category" width="880">
-</details>
-
 ## Limitations and bias
 
 - **All test text is synthetic.** The clinical notes were written by an LLM
@@ -257,8 +266,8 @@ over-redaction ≤ 0.2% — so it is the "ours" candidate.
 - Known false-positive pattern: eponymous clinical terms — e.g. "Babinski
   sign" can be tagged as a NAME. The review screen exists because of cases
   like this.
-- Tested on macOS/Apple Silicon only; ONNX Runtime on other platforms works
-  but is unmeasured.
+- Latency was measured on an Apple M3 Max CPU, and per-note CPU cost on a 20-core ARM Linux
+  workstation. Other platforms are unmeasured. The app is macOS-only for now.
 - **A helper, not a guarantee.** A human must review the output before
   relying on it.
 
