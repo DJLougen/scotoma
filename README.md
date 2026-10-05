@@ -11,6 +11,8 @@ the app ever opens is an optional, opt-in loopback connection to your own speech
 
 Apache-2.0. See [NOTICE](NOTICE) for the data and model credits.
 
+<p align="center"><img src="docs/img/hero.png" alt="Sealed 3: 2 leaked notes out of 7,108 vs 26 for the strongest competitor" width="1000"></p>
+
 ## Benchmark headline
 
 Measured on **sealed** planted-identifier clinical sets — scored exactly once under a committed
@@ -48,6 +50,8 @@ The full field — sealed 2, 860 notes per set, 2026-10-05, model v1-small
 | iiiorg/piiranha-v1 | 97.2 % | 97.3 % | 69.4 % | 76.4 % | 91–96 |
 | rules only | 95.9 % | 96.9 % | — | — | 0.1 |
 
+<p align="center"><img src="docs/img/field.png" alt="Sealed 2 full field: leak-document rate, alone and + Scotoma rules" width="900"></p>
+
 Verdicts (paired bootstrap 95 % CI): significant wins over every competitor except
 OpenMed-large @0.10 + rules — then a statistical tie (2 vs 5 leaked notes), since resolved by
 the powered sealed-3 win above — and OpenMed-small @0.02 + rules on familiar formats (tie).
@@ -55,6 +59,11 @@ The currently bundled model is **v2-small** (sha256 `33be2438…87e41`).
 
 Honest history: in sealed 1 the same OpenMed-large configuration **beat** our v0 model (0.5 %
 vs 1.9 % / 1.7 %). [Details](docs/BENCHMARK.md#sealed-1--final-874-notes-per-set-model-scotoma-v0-int8-002).
+
+<p align="center">
+<img src="docs/img/progress.png" alt="Sealed 1 → 2 → 3: lost, tied, won" width="560">&nbsp;
+<img src="docs/img/speed_vs_leaks.png" alt="ms per note vs leak rate, same CPU" width="560">
+</p>
 
 ## Install and run
 
@@ -77,6 +86,8 @@ cargo run --release -p scotoma -- sweep eval/fixtures/clinical_smoke.jsonl --mod
 ```
 
 ## How it works
+
+<p align="center"><img src="docs/img/pipeline.png" alt="inputs → on-device OCR/STT → rules + 141M model → review → outputs; nothing leaves your device" width="900"></p>
 
 - **Two detectors, merged.** A deterministic rules engine catches structured identifiers
   (MRNs, SSNs, dates, ZIPs, phone, email); a token classifier catches names and anything else the

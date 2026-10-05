@@ -128,6 +128,11 @@ Columns are the leak-document rate.
 | iiiorg/piiranha-v1 (fp32) | 97.2 % | 97.3 % | 69.4 % | 76.4 % | 0.1–0.3 % | 91–96 |
 | rules only | 95.9 % | 96.9 % | — | — | 0.2 % | 0.1 |
 
+<p align="center">
+<img src="img/field.png" alt="Sealed 2 full field on familiar formats" width="680">&nbsp;
+<img src="img/speed_vs_leaks.png" alt="ms per note vs leak rate on the same CPU" width="680">
+</p>
+
 ### Pre-registered verdicts (paired bootstrap, 95 % CI)
 
 Our shipped config vs each competitor, taken at **both** of its operating
@@ -179,6 +184,8 @@ leaked on 1. **Exact McNemar two-sided p = 8.0 × 10⁻⁷.** Paired bootstrap o
 the leak-rate difference: +0.3 pp, 95 % CI [+0.2, +0.5]. Over-redaction within
 the 1 % constraint. **Verdict: significant win.**
 
+<p align="center"><img src="img/hero.png" alt="Sealed 3 headline: 2 vs 26 leaked notes" width="780"></p>
+
 ### Secondary (no multiplicity correction claimed)
 
 | set | comparison | ours | OpenMed-large | exact McNemar p |
@@ -205,6 +212,12 @@ OpenMed-large 0.1–0.3 % alone and 0.3–0.5 % with rules.
   workstation (same source commit, same model files by sha256; dev parity
   between the machines was exact — `SEALED3_LOG.md`).
 
+<details>
+<summary>Per-category recall heatmap (clin3, ours vs OpenMed-large@0.10)</summary>
+
+<img src="img/categories.png" alt="Recall by identifier category" width="780">
+</details>
+
 ### Caveat on scope
 
 Only OpenMed-large was in this powered run (it was the closest competitor on
@@ -215,6 +228,8 @@ below, where we won significantly against every other tested system.
 
 Sources: [SEALED_RESULTS.md](../bench/results/SEALED_RESULTS.md), raw tables
 under [sealed/](../bench/results/sealed/). This is the run we lost.
+
+<p align="center"><img src="img/progress.png" alt="Three sealed evaluations: lost, tied, won" width="780"></p>
 
 | | `clin_sealed` (familiar) | `clin_novel_sealed` (novel) |
 |---|---|---|

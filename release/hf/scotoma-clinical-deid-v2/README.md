@@ -12,6 +12,7 @@ tags:
 - clinical
 datasets:
 - nvidia/Nemotron-PII
+thumbnail: https://huggingface.co/{{HF_REPO}}/resolve/main/assets/hero.png
 ---
 
 # Scotoma Clinical De-Identification v2 (small)
@@ -21,6 +22,8 @@ PHI redaction app for macOS (Tauri + Rust). It is
 `microsoft/deberta-v3-small` (141M parameters, 98M of which are the embedding
 table) fine-tuned to tag 21 HIPAA Safe-Harbor-style identifier categories, then
 exported to ONNX and quantized to per-channel int8.
+
+<p align="center"><img src="assets/hero.png" alt="Sealed 3: 2 leaked notes out of 7,108 vs 26 for rules+OpenMed-large@0.10" width="900"></p>
 
 | | |
 |---|---|
@@ -180,6 +183,8 @@ are generated first and scored exactly once under a committed pre-registration.
 
 (n/m = predictions were precomputed on GPU, so no comparable CPU timing.)
 
+<p align="center"><img src="assets/field.png" alt="Sealed 2 full field: leak-document rate on familiar formats, model alone vs + Scotoma rules" width="880"></p>
+
 Verdicts (paired bootstrap 95% CI): statistically tied with
 OpenMed-large@0.1+rules (2 vs 5 leaked notes) and with OpenMed-small@0.02+rules
 on familiar formats; significantly better than everything else listed. History:
@@ -217,6 +222,17 @@ listed in `SEALED3_PREREG.md`). Final, 2026-10-05:
 Pre-registered dev-set selection (clin2_dev + clin2_novel_dev, rules + model
 @0.02): v1-small leaked 6 notes total (4 + 2), v2-small leaked 2 (2 + 0) with
 over-redaction ≤ 0.2% — so v2-small is the "ours" candidate.
+
+<p align="center">
+<img src="assets/progress.png" alt="Sealed 1 → 2 → 3 vs rules+OpenMed-large@0.10: lost, tied, won" width="540">&nbsp;
+<img src="assets/speed_vs_leaks.png" alt="ms per note vs leak-document rate on the same CPU" width="540">
+</p>
+
+<details>
+<summary>Per-category recall (clin3, ours vs OpenMed-large@0.10)</summary>
+
+<img src="assets/categories.png" alt="Recall heatmap by identifier category" width="880">
+</details>
 
 ## Limitations and bias
 
