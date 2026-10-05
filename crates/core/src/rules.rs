@@ -26,6 +26,8 @@ const IDVAL: &str = r"([A-Za-z0-9][A-Za-z0-9-]{3,23})";
 const NTOK: &str = r"(?:(?:Mc|Mac|O['’]|D['’])[A-Z][a-z]+(?:-[A-Z][a-z]+)*|[A-Z][a-z]+(?:['’-][A-Z]?[a-z]+)*|[A-Z]{2,})";
 /// Lower-case-able name particles: de la Cruz, van der Berg, bin Rashid.
 const PART: &str = r"(?:de|De|la|La|van|Van|von|Von|del|Del|der|den|di|Di|da|Da|le|Le|bin|ibn|al|Al|el|El|St\.)";
+/// One all-caps word: SMITH, O'NEIL, AL-SAYED, VAN.
+const CTOK: &str = r"[A-Z]+(?:[-'’][A-Z]+)*";
 
 fn digits(s: &str) -> usize {
     s.bytes().filter(|b| b.is_ascii_digit()).count()
@@ -197,12 +199,493 @@ fn rules() -> &'static Vec<Rule> {
         // Registration-style "LAST, FIRST" followed by demographics.
         add(r"\b([A-Z]{2,}(?:[-'][A-Z]+)?,\s+[A-Z]{2,}(?:\s+[A-Z]\.?)?)\s+(?:\d{1,3}\s*(?:y/?o|yrs?)|DOB|MRN|\(|[MF]\b)".into(), Name, 1, 0.9, None, false);
         add(r"\b(?:Patient|Pt|Client|Resident)\s+([A-Z]{2,}(?:[-'][A-Z]+)?,\s+[A-Z]{2,}(?:\s+[A-Z]\.?)?)".into(), Name, 1, 0.9, None, false);
-        add(format!(r"(?i:\b(?:patient(?:\s+name)?|pt|name|client|resident|attending|provider|physician|surgeon|referring(?:\s+(?:physician|provider|md))?|pcp|emergency\s+contact|next\s+of\s+kin|nok|guardian|spouse|mother|father|daughter|son|wife|husband|partner|signed(?:\s+by)?|dictated\s+by|reviewed\s+by|seen\s+by|ordered\s+by|cc|author|re|assistant|an(?:a)?esthesiologist|an(?:a)?esthetist|proband|interpreter|social\s+worker|contact|caller|informant|witness))\s*:\s*(?:(?:Dr|Mr|Mrs|Ms|Miss|Mx|Prof)\.?\s+)?((?:{NTOK},\s*)?{full})"), Name, 1, 0.85, None, false);
+        // Bare "SURNAME, GIVEN" pairs. Registrars, schedulers and EHR headers
+        // print names in all caps ("MUELLER, GLORIA", "VAN DER BERG, ANNA"),
+        // so that shape alone is evidence; the check filters clinical lists.
+        add(format!(r"\b({CTOK}(?:\s+{CTOK}){{0,2}},\s*{CTOK}(?:\s+[A-Z]\b\.?)?)"), Name, 1, 0.9, Some(name_pair), false);
+        // Mixed case "Mueller, Gloria" only when a header-style cue precedes it
+        // ("From:", "Attn:", "cc:") or demographics follow on the same line
+        // ("Mueller, Gloria DOB", "…, 62 y/o").
+        let pair = format!(r"(?:{CTOK}(?:\s+{CTOK}){{0,2}}|{full}),\s*{NTOK}(?:\s+[A-Z]\b\.?)?");
+        add(format!(r"(?i:\b(?:from|to|sent|attn|attention|cc|bcc|copied|fwd?|fw|forwarded|between)\s*[:–—-]\s*|\b(?:care\s+of|c/o|attention\s+of|addressed\s+to|delivered\s+to|copied\s+to|sent\s+to|forwarded\s+to|between)\s+)\s*(?:(?:Dr|Mr|Mrs|Ms|Miss|Mx|Prof)\.?\s+)?({pair})"), Name, 1, 0.8, Some(name_pair), false);
+        add(format!(r"\b({pair})\s+\(?(?:(?:19|20)\d{{2}}|\d{{1,2}}[/-]\d{{1,2}}[/-]\d{{2,4}}|(?i:d\.?o\.?b\.?|mrn|m\.?r\.?#|chart|med\.?\s?rec\.?|age|male|female|born)\b|\d{{1,3}}\s*(?:y/?o|yrs?\.?)\b)"), Name, 1, 0.8, Some(name_pair), false);
+        add(format!(r"(?i:\b(?:patient(?:\s+name)?|pt|name|client|resident|attending|provider|physician|surgeon|referring(?:\s+(?:physician|provider|md))?|pcp|emergency\s+contact|next\s+of\s+kin|nok|guardian|spouse|mother|father|daughter|son|wife|husband|partner|signed(?:\s+by)?|dictated\s+by|reviewed\s+by|seen\s+by|ordered\s+by|cc|author|re|assistant|an(?:a)?esthesiologist|an(?:a)?esthetist|proband|interpreter|social\s+worker|contact|caller|informant|witness))\s*:\s*(?:(?:Dr|Mr|Mrs|Ms|Miss|Mx|Prof)\.?\s+)?((?:{NTOK},\s*)?{full})"), Name, 1, 0.85, Some(name_or_pair), false);
         add(format!(r"\b({NTOK}(?:\s+[A-Z]\.)?\s+{NTOK}),?\s+(?:M\.?D\.?|D\.?O\.?|R\.?N\.?|N\.?P\.?|PA-C|Ph\.?D\.?|DDS|DPM|PharmD|LCSW|CRNA|FNP|APRN|MBBS|FRCPC)\b"), Name, 1, 0.9, None, false);
         add(format!(r"(?i:\b(?:daughter|son|wife|husband|mother|father|brother|sister|spouse|partner|friend|neighbou?r|caregiver|niece|nephew|aunt|uncle|grand(?:mother|father|son|daughter)|roommate|boyfriend|girlfriend|fianc[ée]e?)),?\s+({NTOK}(?:\s+{NTOK})?)"), Name, 1, 0.8, None, false);
         add(r"\b([A-Z][a-z]+(?:[ -][A-Z][a-z]+){0,2}),\s+(?:ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU)\.?,?\s+[A-Z]\d[A-Z][ -]?\d[A-Z]\d\b".into(), Location, 1, 0.9, None, false);
         v
     })
+}
+/// Clinical headers, symptoms, anatomy, drugs, credentials, units, dictation
+/// words and generic English/technical terms that appear in "X, Y" pairs but
+/// are never names ("HISTORY, PHYSICAL", "ASPIRIN, METOPROLOL", "GET, POST").
+/// Applied to either side of a "LAST, FIRST" pair.
+const CLIN_STOP: &[&str] = &[
+    // headers, roles and chart vocabulary
+    "history", "physical", "assessment", "plan", "exam", "examination", "impression",
+    "diagnosis", "diagnoses", "procedure", "procedures", "review", "systems",
+    "summary", "subjective", "objective", "soap", "progress", "consult", "consultation",
+    "referral", "discharge", "admission", "intake", "triage", "rounds", "findings",
+    "vitals", "signs", "instructions", "orders", "recommendations", "discussion",
+    "medication", "medications", "meds", "allergies", "immunizations", "vaccines",
+    "labs", "laboratory", "radiology", "pathology", "cardiology", "pulmonology",
+    "oncology", "neurology", "ophthalmology", "otolaryngology", "dermatology",
+    "gastroenterology", "endocrinology", "rheumatology", "psychiatry", "psychology",
+    "pediatrics", "geriatrics", "orthopedics", "orthopaedics", "urology", "nephrology",
+    "hematology", "gynecology", "obstetrics", "anesthesia", "anaesthesia", "surgery",
+    "surgical", "medical", "dental", "therapy", "therapies", "rehab", "rehabilitation",
+    "pharmacy", "nursing", "care", "services", "home", "hospice", "palliative",
+    "emergency", "urgent", "trauma", "icu", "ccu", "picu", "nicu", "pacu", "er",
+    "ed", "or", "pt", "ot", "rt", "sla", "dietary", "nutrition", "social",
+    "past", "family", "social", "current", "obstetric", "gynecologic", "hospital",
+    "patient", "patients", "client", "clients", "resident", "provider", "providers",
+    "physician", "physicians", "clinician", "clinicians", "nurse", "nurses",
+    "practitioner", "surgeon", "doctor", "attending", "resident", "intern", "fellow",
+    "consultant", "specialist", "pharmacist", "therapist", "technician", "assistant",
+    "aide", "coordinator", "manager", "director", "supervisor", "administrator",
+    "receptionist", "interpreter", "translator", "scribe", "coder", "biller",
+    "chaperone", "escort", "driver", "caregiver", "guardian", "parent", "child",
+    "adult", "infant", "newborn", "neonate", "spouse", "partner", "sibling",
+    "brother", "sister", "relative", "friend", "witness", "informant", "caller",
+    "contact", "author", "sender", "receiver", "recipient", "enclosure", "attachment",
+    "attachments", "exhibit", "exhibits", "appendix", "appendices", "addendum",
+    "subject", "re", "cc", "bcc", "ps", "pps", "note", "notes", "memo", "memorandum",
+    "letter", "report", "form", "forms", "record", "records", "chart", "charts",
+    "file", "files", "document", "documentation", "information", "details", "data",
+    "management", "administration", "registration", "scheduling", "billing",
+    "coding", "claims", "insurance", "authorization", "referrals", "appointments",
+    "answer", "question", "comment", "comments", "introduction", "background",
+    "methods", "results", "conclusion", "conclusions", "references", "scope",
+    "purpose", "overview", "objectives", "goals", "outcomes", "followup", "follow",
+    // symptoms, signs and descriptors
+    "pain", "ache", "aches", "nausea", "vomiting", "emesis", "diarrhea", "diarrhoea",
+    "constipation", "cough", "fever", "chills", "sweats", "rigors", "fatigue",
+    "malaise", "weakness", "dizziness", "vertigo", "headache", "migraine", "syncope",
+    "presyncope", "seizure", "seizures", "tremor", "rash", "pruritus", "itching",
+    "hives", "urticaria", "lesion", "lesions", "wound", "swelling", "edema",
+    "erythema", "redness", "bruising", "ecchymosis", "hematoma", "bleeding",
+    "hemorrhage", "discharge", "drainage", "congestion", "rhinorrhea", "sneezing",
+    "wheezing", "stridor", "dyspnea", "dyspnoea", "orthopnea", "apnea", "apnoea",
+    "snoring", "insomnia", "somnolence", "lethargy", "anxiety", "depression",
+    "confusion", "agitation", "delirium", "hallucinations", "suicidal", "homicidal",
+    "sob", "doe", "cp", "soa", "palpitations", "tachycardia", "bradycardia",
+    "arrhythmia", "hypertension", "hypotension", "hypoxia", "hypoxemia", "cyanosis",
+    "jaundice", "icterus", "pallor", "flushing", "anemia", "infection", "sepsis",
+    "inflammation", "abscess", "cellulitis", "phlegm", "sputum", "mucus", "pus",
+    "vomit", "stool", "stools", "urine", "hematuria", "dysuria", "polyuria",
+    "oliguria", "anuria", "incontinence", "retention", "urgency", "frequency",
+    "hesitancy", "nocturia", "anorexia", "cachexia", "obesity", "overweight",
+    "underweight", "dehydration", "malnutrition", "ascites", "edema", "anorexia",
+    "nausea", "emesis", "heartburn", "reflux", "bloating", "cramping", "flatulence",
+    "belching", "hiccups", "dysphagia", "odynophagia", "dyspepsia", "indigestion",
+    "melena", "hematochezia", "hematemesis", "tenesmus", "pruritus", "erythema",
+    // anatomy
+    "head", "neck", "throat", "ear", "ears", "eye", "eyes", "nose", "mouth",
+    "lip", "lips", "tongue", "tooth", "teeth", "gums", "jaw", "chin", "cheek",
+    "face", "scalp", "skull", "brain", "spine", "back", "shoulder", "shoulders",
+    "arm", "arms", "elbow", "elbows", "forearm", "wrist", "wrists", "hand",
+    "hands", "finger", "fingers", "thumb", "thumbs", "chest", "breast", "breasts",
+    "rib", "ribs", "abdomen", "stomach", "belly", "groin", "hip", "hips",
+    "pelvis", "buttock", "buttocks", "thigh", "thighs", "leg", "legs", "knee",
+    "knees", "calf", "calves", "ankle", "ankles", "foot", "feet", "toe", "toes",
+    "heel", "skin", "hair", "nail", "nails", "heart", "lung", "lungs", "liver",
+    "spleen", "kidney", "kidneys", "bladder", "bowel", "colon", "rectum", "anus",
+    "vagina", "penis", "scrotum", "testicle", "testicles", "ovary", "ovaries",
+    "uterus", "cervix", "prostate", "thyroid", "gallbladder", "pancreas",
+    "esophagus", "trachea", "larynx", "pharynx", "tonsil", "tonsils", "adenoids",
+    "appendix", "artery", "arteries", "vein", "veins", "nerve", "nerves",
+    "muscle", "muscles", "tendon", "tendons", "ligament", "cartilage", "bone",
+    "bones", "joint", "joints", "disc", "vertebra", "sternum", "clavicle",
+    "scapula", "femur", "tibia", "fibula", "radius", "ulna", "humerus", "sacrum",
+    "coccyx", "mandible", "maxilla", "sinus", "sinuses", "bronchus", "aorta",
+    "ventricle", "atrium", "retina", "cornea", "iris", "pupil", "eardrum",
+    // common drug names (generics and OTC brands)
+    "aspirin", "acetaminophen", "paracetamol", "tylenol", "ibuprofen", "advil",
+    "motrin", "naproxen", "aleve", "celebrex", "meloxicam", "diclofenac",
+    "prednisone", "prednisolone", "methylprednisolone", "dexamethasone",
+    "hydrocortisone", "lisinopril", "enalapril", "ramipril", "losartan",
+    "valsartan", "irbesartan", "olmesartan", "amlodipine", "nifedipine",
+    "diltiazem", "verapamil", "metoprolol", "atenolol", "carvedilol", "propranolol",
+    "labetalol", "bisoprolol", "nebivolol", "hydrochlorothiazide", "hctz",
+    "chlorthalidone", "furosemide", "lasix", "bumetanide", "spironolactone",
+    "atorvastatin", "lipitor", "simvastatin", "zocor", "rosuvastatin", "crestor",
+    "pravastatin", "ezetimibe", "fenofibrate", "gemfibrozil", "niacin",
+    "metformin", "glucophage", "glipizide", "glyburide", "glimepiride",
+    "sitagliptin", "januvia", "empagliflozin", "jardiance", "dapagliflozin",
+    "farxiga", "liraglutide", "victoza", "semaglutide", "ozempic", "rybelsus",
+    "insulin", "lantus", "humalog", "novolog", "levothyroxine", "synthroid",
+    "amoxicillin", "amoxil", "augmentin", "penicillin", "cephalexin", "keflex",
+    "azithromycin", "zithromax", "zpack", "ciprofloxacin", "cipro",
+    "levofloxacin", "doxycycline", "clindamycin", "metronidazole", "flagyl",
+    "nitrofurantoin", "macrobid", "bactrim", "septra", "vancomycin", "omeprazole",
+    "prilosec", "esomeprazole", "nexium", "pantoprazole", "protonix",
+    "lansoprazole", "famotidine", "pepcid", "ranitidine", "zantac", "sucralfate",
+    "ondansetron", "zofran", "promethazine", "phenergan", "meclizine",
+    "metoclopramide", "reglan", "sertraline", "zoloft", "fluoxetine", "prozac",
+    "escitalopram", "lexapro", "citalopram", "celexa", "paroxetine", "paxil",
+    "venlafaxine", "effexor", "duloxetine", "cymbalta", "bupropion", "wellbutrin",
+    "trazodone", "mirtazapine", "buspirone", "lorazepam", "ativan", "alprazolam",
+    "xanax", "clonazepam", "klonopin", "diazepam", "valium", "zolpidem",
+    "ambien", "quetiapine", "seroquel", "olanzapine", "zyprexa", "risperidone",
+    "risperdal", "aripiprazole", "abilify", "lamotrigine", "lamictal",
+    "levetiracetam", "keppra", "gabapentin", "neurontin", "pregabalin", "lyrica",
+    "topiramate", "topamax", "valproate", "depakote", "carbamazepine", "tegretol",
+    "phenytoin", "dilantin", "tramadol", "ultram", "oxycodone", "oxycontin",
+    "percocet", "hydrocodone", "norco", "vicodin", "morphine", "codeine",
+    "fentanyl", "hydromorphone", "dilaudid", "methadone", "buprenorphine",
+    "cyclobenzaprine", "flexeril", "methocarbamol", "robaxin", "tizanidine",
+    "baclofen", "albuterol", "ventolin", "proair", "fluticasone", "flonase",
+    "salmeterol", "tiotropium", "spiriva", "budesonide", "montelukast",
+    "singulair", "loratadine", "claritin", "cetirizine", "zyrtec",
+    "diphenhydramine", "benadryl", "fexofenadine", "allegra", "warfarin",
+    "coumadin", "apixaban", "eliquis", "rivaroxaban", "xarelto", "dabigatran",
+    "pradaxa", "clopidogrel", "plavix", "prasugrel", "ticagrelor", "heparin",
+    "enoxaparin", "lovenox", "digoxin", "amiodarone", "isosorbide",
+    "nitroglycerin", "hydralazine", "clonidine", "doxazosin", "terazosin",
+    "finasteride", "proscar", "tamsulosin", "flomax", "sildenafil", "viagra",
+    "tadalafil", "cialis", "allopurinol", "colchicine", "febuxostat",
+    "methotrexate", "hydroxychloroquine", "plaquenil", "folic", "folate",
+    "cyanocobalamin", "ferrous", "calcium", "magnesium", "potassium", "vitamin",
+    "zinc", "aspirine", "insulins", "levodopa", "donepezil", "memantine",
+    // abbreviations, credentials, units, verbs of dictation
+    "bp", "hr", "rr", "spo2", "o2", "ekg", "ecg", "eeg", "emg", "ehr", "emr",
+    "ct", "mri", "xray", "cxr", "cbc", "bmp", "cmp", "tsh", "psa", "inr", "a1c",
+    "hba1c", "esr", "crp", "bnp", "bun", "gfr", "egfr", "ldl", "hdl", "alt",
+    "ast", "alp", "wbc", "rbc", "hgb", "hct", "plt", "mcv", "rdw", "k", "na",
+    "cl", "co2", "ca", "mg", "ph", "pco2", "po2", "hco3", "fio2", "peep", "pap",
+    "hpi", "pmh", "psh", "fh", "sh", "nkda", "nka", "stat", "prn", "bid", "tid",
+    "qid", "qhs", "qam", "qpm", "po", "iv", "im", "sq", "subq", "sl", "gt",
+    "ng", "og", "pr", "od", "os", "ou", "ad", "as", "au", "ac", "pc", "hs",
+    "qhs", "mg", "mcg", "ml", "cc", "g", "kg", "lb", "oz", "cm", "mm", "m",
+    "cm", "mmhg", "bpm", "l", "dl", "iu", "meq", "mmol", "units", "tab", "tabs",
+    "cap", "caps", "drop", "drops", "puff", "puffs", "spray", "patch", "cream",
+    "ointment", "gel", "lotion", "suspension", "tablet", "tablets", "capsule",
+    "capsules", "dose", "doses", "daily", "weekly", "monthly", "hourly", "am",
+    "pm", "am.", "pm.", "qday", "qd", "bid.", "reviewed", "discussed",
+    "assessed", "evaluated", "examined", "treated", "prescribed", "ordered",
+    "performed", "obtained", "administered", "monitored", "documented", "noted",
+    "observed", "reported", "denies", "endorses", "complains", "presents",
+    "returns", "tolerated", "admitted", "discharged", "transferred", "referred",
+    "scheduled", "rescheduled", "cancelled", "completed", "pending", "stable",
+    "unstable", "improved", "improving", "worsening", "unchanged", "resolved",
+    "negative", "positive", "normal", "abnormal", "unremarkable", "remarkable",
+    "benign", "malignant", "acute", "chronic", "mild", "moderate", "severe",
+    "left", "right", "bilateral", "unilateral", "upper", "lower", "anterior",
+    "posterior", "medial", "lateral", "proximal", "distal", "superior",
+    "inferior", "dorsal", "ventral", "internal", "external", "primary",
+    "secondary", "tertiary", "initial", "follow", "final", "preliminary",
+    "provisional", "definitive", "presumptive", "differential", "rule",
+    "out", "versus", "vs", "et", "al", "etc", "ie", "eg", "na", "n/a", "nka",
+    "unk", "unknown", "none", "nil", "no.", "pt.", "pts", "yo", "y/o", "yr",
+    "yrs", "wk", "wks", "mo", "mos", "hr", "hrs", "min", "mins", "sec", "secs",
+    "born", "died", "deceased", "expired", "alive", "living", "single",
+    "married", "divorced", "widowed", "separated", "employed", "unemployed",
+    "retired", "student", "insured", "uninsured", "smoker", "nonsmoker",
+    "former", "occasional", "social", "denies", "quit", "pack", "packs", "year",
+    "years", "week", "weeks", "month", "months", "day", "days", "ago", "since",
+    "until", "per", "via", "with", "without", "due", "owing", "related",
+    "secondary", "complaining", "complains", "presents", "presented", "states",
+    "reports", "claims", "describes", "endorses", "denies", "admits", "requests",
+    "refuses", "declines", "consents", "agrees", "understands", "acknowledges",
+    // common english words seen in caps and discourse markers
+    "the", "and", "or", "but", "for", "nor", "yet", "so", "if", "then", "than",
+    "that", "this", "these", "those", "there", "here", "where", "when", "what",
+    "which", "who", "whom", "whose", "why", "how", "all", "any", "both", "each",
+    "every", "either", "neither", "other", "another", "such", "same",
+    "different", "various", "several", "few", "many", "more", "most", "less",
+    "least", "much", "some", "none", "one", "two", "three", "four", "five",
+    "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
+    "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen",
+    "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty",
+    "ninety", "hundred", "thousand", "million", "billion", "dozen", "first",
+    "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
+    "tenth", "once", "twice", "thrice", "again", "also", "too", "very", "just",
+    "only", "even", "still", "already", "always", "never", "often", "sometimes",
+    "usually", "rarely", "hardly", "almost", "nearly", "quite", "rather",
+    "fairly", "pretty", "really", "truly", "indeed", "perhaps", "maybe",
+    "possibly", "probably", "certainly", "definitely", "absolutely", "sure",
+    "surely", "yes", "okay", "ok", "please", "thanks", "thank", "sorry",
+    "excuse", "pardon", "hello", "hi", "dear", "sincerely", "regards",
+    "respectfully", "cordially", "truly", "faithfully", "yours", "mine",
+    "ours", "hers", "his", "theirs", "its", "our", "your", "their", "my",
+    "me", "him", "us", "them", "i", "we", "you", "he", "she", "it", "they",
+    "whoever", "whomever", "everyone", "everybody", "someone", "somebody",
+    "anyone", "anybody", "nobody", "everyone", "everything", "something",
+    "anything", "nothing", "new", "old", "good", "bad", "best", "worst",
+    "better", "worse", "high", "low", "big", "small", "large", "little",
+    "long", "short", "early", "late", "next", "last", "previous", "following",
+    "above", "below", "under", "over", "between", "among", "within", "through",
+    "throughout", "during", "before", "after", "around", "about", "against",
+    "upon", "toward", "towards", "onto", "into", "unto", "beside", "besides",
+    "beneath", "underneath", "except", "excluding", "including", "regarding",
+    "concerning", "respecting", "pursuant", "notwithstanding", "hereinafter",
+    "hereby", "herein", "thereof", "therein", "therefore", "however",
+    "whereas", "whereby", "wherein", "furthermore", "moreover", "nevertheless",
+    "nonetheless", "otherwise", "accordingly", "consequently", "hence", "thus",
+    "thereby", "meanwhile", "otherwise", "likewise", "similarly", "conversely",
+    "instead", "alternatively", "additionally", "further", "besides", "also",
+    "plus", "minus", "times", "divided", "equals", "total", "subtotal", "sum",
+    "balance", "remainder", "amount", "quantity", "number", "figure", "figures",
+    "table", "tables", "section", "sections", "chapter", "chapters", "part",
+    "parts", "item", "items", "line", "lines", "page", "pages", "paragraph",
+    "paragraphs", "sentence", "sentences", "word", "words", "letter", "letters",
+    "number", "numbers", "code", "codes", "value", "values", "result", "results",
+    "finding", "findings", "level", "levels", "rate", "rates", "ratio",
+    "count", "counts", "total", "average", "median", "range", "score",
+    "scores", "grade", "stage", "class", "type", "category", "group", "kind",
+    "sort", "variety", "version", "model", "series", "batch", "lot", "set",
+    "list", "row", "column", "cell", "index", "key", "keys", "entry", "entries",
+    "option", "options", "choice", "choices", "field", "fields", "parameter",
+    "parameters", "variable", "variables", "constant", "input", "output",
+    "response", "request", "reply", "message", "messages", "signal", "sign",
+    "token", "id", "ids", "no", "nos", "num", "ref", "refs", "ver", "rev",
+    "vol", "pg", "pp", "fig", "tbl", "eq", "sec", "para", "appx", "ch", "ed",
+    // tech / business / legal vocabulary (non-clinical corpora)
+    "api", "ascii", "binary", "byte", "cache", "compiler", "css", "csv",
+    "database", "debug", "dns", "ftp", "html", "http", "https", "imap", "json",
+    "jpeg", "jpg", "gif", "png", "bmp", "tiff", "svg", "pdf", "doc", "docx",
+    "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "odt", "zip", "tar", "gz",
+    "exe", "dll", "app", "lan", "wan", "wifi", "vpn", "vlan", "tcp", "udp",
+    "tls", "ssl", "ssh", "smtp", "pop", "sql", "mysql", "regex", "router",
+    "sdk", "uri", "url", "usb", "utf", "xml", "yaml", "json", "get", "post",
+    "put", "delete", "patch", "head", "options", "trace", "connect", "login",
+    "logout", "null", "void", "true", "false", "client", "server", "proxy",
+    "gateway", "host", "hosts", "node", "nodes", "cluster", "queue", "stack",
+    "heap", "array", "string", "integer", "float", "boolean", "enum", "struct",
+    "union", "typedef", "sizeof", "return", "break", "continue", "switch",
+    "case", "default", "else", "while", "do", "for", "goto", "sizeof",
+    "static", "const", "extern", "inline", "virtual", "public", "private",
+    "protected", "class", "interface", "extends", "implements", "import",
+    "package", "module", "namespace", "using", "include", "define", "undef",
+    "ifdef", "ifndef", "endif", "pragma", "template", "typename", "new",
+    "delete", "this", "self", "super", "try", "catch", "throw", "throws",
+    "finally", "assert", "sizeof", "alignof", "decltype", "auto", "register",
+    "volatile", "mutable", "explicit", "friend", "operator", "sizeof",
+    "agreement", "contract", "lease", "warranty", "liability", "indemnity",
+    "party", "parties", "landlord", "tenant", "buyer", "seller", "vendor",
+    "vendee", "lessor", "lessee", "grantor", "grantee", "licensor", "licensee",
+    "mortgagor", "mortgagee", "obligor", "obligee", "guarantor", "principal",
+    "agent", "assignor", "assignee", "successor", "predecessor", "affiliate",
+    "subsidiary", "parent", "holding", "shareholder", "stockholder",
+    "director", "officer", "trustee", "beneficiary", "executor", "executrix",
+    "administrator", "guardian", "conservator", "ward", "plaintiff",
+    "defendant", "petitioner", "respondent", "appellant", "appellee",
+    "claimant", "decadent", "deponent", "witness", "affiant", "notary",
+    "attorney", "counsel", "counselor", "barrister", "solicitor", "advocate",
+    "judge", "justice", "magistrate", "clerk", "bailiff", "marshal",
+    "sheriff", "constable", "commissioner", "arbitrator", "mediator",
+    "invoice", "invoices", "receipt", "receipts", "payment", "payments",
+    "deposit", "deposits", "withdrawal", "transfer", "refund", "refunds",
+    "credit", "debit", "charge", "charges", "fee", "fees", "tax", "taxes",
+    "tariff", "duty", "customs", "fine", "fines", "penalty", "penalties",
+    "interest", "principal", "balance", "overdraft", "statement", "statements",
+    "ledger", "journal", "voucher", "memo", "audit", "accounting",
+    "bookkeeping", "payroll", "salary", "wage", "wages", "bonus", "commission",
+    "dividend", "royalty", "pension", "annuity", "benefit", "benefits",
+    "premium", "premiums", "deductible", "copay", "coinsurance", "coverage",
+    "policy", "policies", "claim", "claims", "underwriting", "actuary",
+    "law", "laws", "statute", "statutes", "regulation", "regulations",
+    "ordinance", "ordinances", "axis", "axes",
+    // acronyms / certification / legal-jurat pairs ("LEED, BREEAM", "SUBSCRIBED, SWORN")
+    "leed", "breeam", "sep", "simple", "ira", "roth", "hsa", "fsa", "ein",
+    "llc", "llp", "inc", "corp", "ltd", "plc", "gmbh", "pty", "cpa", "cfa",
+    "ctr", "cpc", "cpt", "hcpcs", "roi", "npv", "irr", "ebitda", "seo",
+    "ppc", "sem", "far", "frr", "tpr", "fpr", "fnr", "tnr", "auc", "rmse",
+    "mae", "mape", "r2", "sworn", "subscribed", "affirmed", "seal", "jurat",
+    "sic", "tbd", "tba", "eta", "etd", "est", "edt", "cst", "cdt", "mst",
+    "mdt", "pst", "pdt", "gmt", "utc", "fbi", "cia", "nsa", "faa", "fcc",
+    "fda", "nih", "cdc", "cms", "irs", "epa", "osha", "hipaa", "hitech",
+    "ada", "dea", "doj", "dod", "va", "usps", "ups", "fedex", "sec", "ftc",
+    "gsa", "ssa", "dmv", "dhs", "fema", "nato", "usa", "un", "eu", "uk",
+    "us", "uk", "fed",
+    // temporal and structural
+    "schedule", "scheduled", "appointment", "appointments", "meeting",
+    "meetings", "conference", "call", "calls", "session", "sessions", "shift",
+    "shifts", "weekend", "weekends", "weekday", "weekdays", "holiday",
+    "holidays", "vacation", "leave", "sick", "absence", "absent", "present",
+    "tardy", "overtime", "undertime", "break", "lunch", "dinner", "breakfast",
+    "morning", "afternoon", "evening", "night", "noon", "midnight", "dawn",
+    "dusk", "sunrise", "sunset", "today", "tomorrow", "yesterday", "tonight",
+    "now", "then", "soon", "later", "earlier", "immediately", "promptly",
+    "urgently", "stat", "asap", "imminent", "forthcoming", "upcoming",
+    "pending", "overdue", "current", "prior", "previous", "subsequent",
+    "following", "preceding", "initial", "final", "last", "first", "next",
+    "home", "work", "school", "office", "building", "suite", "floor", "room",
+    "unit", "apartment", "house", "residence", "address", "location",
+    "facility", "facilities", "site", "sites", "campus", "wing", "floor",
+    "level", "basement", "attic", "garage", "parking", "entrance", "exit",
+    "lobby", "corridor", "hallway", "elevator", "stairs", "stairwell",
+    "bed", "beds", "ward", "wards", "bay", "bays", "station", "counter",
+    "desk", "window", "door", "gate", "terminal", "annex", "pavilion",
+    "tower", "center", "centre", "institute", "institution", "foundation",
+    "association", "organization", "organisation", "agency", "bureau",
+    "commission", "committee", "board", "panel", "task", "force", "team",
+    "group", "division", "department", "branch", "section", "unit", "office",
+    "bureau", "authority", "administration", "government", "federal", "state",
+    "county", "city", "municipal", "local", "national", "international",
+    "regional", "district", "zone", "area", "sector", "territory", "province",
+    "region", "north", "south", "east", "west", "northeast", "northwest",
+    "southeast", "southwest", "central", "northern", "southern", "eastern",
+    "western", "upper", "lower", "inner", "outer", "greater", "lesser",
+    "metro", "metropolitan", "urban", "suburban", "rural", "downtown",
+    "uptown", "midtown", "old", "historic", "modern",
+    // roman numerals and placeholders
+    "ii", "iii", "iv", "vi", "vii", "viii", "ix", "xi", "xii", "xiii", "xiv",
+    "xv", "xvi", "xvii", "xviii", "xix", "xx", "xxi", "xxv", "xxx", "xl",
+    "xlv", "doe", "roe", "bloggs",
+    "public", "sample", "example", "test", "testing", "demo",
+    "placeholder", "unknown", "anonymous", "confidential", "secret",
+    "private", "classified", "restricted", "internal", "draft", "final",
+    "approved", "pending", "review", "revision", "supersedes", "obsolete",
+    "copy", "copies", "original", "duplicate", "triplicate", "carbon",
+    "attachment", "enclosure", "included", "attached", "enclosed", "herein",
+    "hereof", "hereunto", "aforesaid", "aforementioned", "hereinafter",
+];
+
+/// Right-side words that indicate geography or organisation rather than a
+/// given name: "PORTLAND, MAINE", "ACME, INC", "SPRINGFIELD, USA".
+const GEO_STOP: &[&str] = &[
+    // US states + DC (given names Virginia/Georgia/Carolina kept as names)
+    "alabama", "alaska", "arizona", "arkansas", "california", "colorado",
+    "connecticut", "delaware", "florida", "hawaii", "idaho", "illinois",
+    "indiana", "iowa", "kansas", "kentucky", "louisiana", "maine", "maryland",
+    "massachusetts", "michigan", "minnesota", "mississippi", "missouri",
+    "montana", "nebraska", "nevada", "hampshire", "jersey", "mexico",
+    "ohio", "oklahoma", "oregon", "pennsylvania", "island", "dakota",
+    "tennessee", "texas", "utah", "vermont", "washington", "wisconsin",
+    "wyoming", "columbia",
+    // countries and regions
+    "usa", "america", "canada", "ontario", "quebec", "alberta", "columbia",
+    "manitoba", "saskatchewan", "scotia", "brunswick", "labrador",
+    "newfoundland", "yukon", "nunavut", "england", "scotland", "wales",
+    "ireland", "britain", "kingdom", "france", "germany", "italy", "spain",
+    "portugal", "greece", "sweden", "norway", "denmark", "finland", "iceland",
+    "poland", "austria", "switzerland", "belgium", "netherlands", "holland",
+    "luxembourg", "czechia", "slovakia", "hungary", "romania", "bulgaria",
+    "ukraine", "russia", "belarus", "estonia", "latvia", "lithuania",
+    "slovenia", "croatia", "serbia", "bosnia", "albania", "macedonia",
+    "montenegro", "kosovo", "moldova", "turkey", "cyprus", "malta",
+    "australia", "zealand", "victoria", "tasmania", "queensland", "canberra",
+    "sydney", "melbourne", "brisbane", "perth", "adelaide", "auckland",
+    "wellington", "china", "japan", "korea", "india", "pakistan", "bangladesh",
+    "indonesia", "malaysia", "singapore", "thailand", "vietnam", "philippines",
+    "cambodia", "laos", "myanmar", "nepal", "mongolia", "taiwan", "kong",
+    "macau", "brazil", "argentina", "chile", "peru", "colombia", "venezuela",
+    "ecuador", "bolivia", "paraguay", "uruguay", "guyana", "suriname",
+    "panama", "rica", "honduras", "guatemala", "salvador", "nicaragua",
+    "belize", "cuba", "jamaica", "haiti", "dominican", "bahamas", "barbados",
+    "trinidad", "tobago", "grenada", "lucia", "vincent", "egypt", "morocco",
+    "algeria", "tunisia", "libya", "sudan", "ethiopia", "tanzania",
+    "uganda", "rwanda", "ghana", "nigeria", "senegal", "mali", "niger",
+    "cameroon", "congo", "angola", "zambia", "zimbabwe", "botswana",
+    "namibia", "africa", "mozambique", "madagascar", "mauritius", "lebanon", "syria", "iraq", "iran", "arabia", "emirates",
+    "qatar", "kuwait", "bahrain", "oman", "yemen", "afghanistan", "europe",
+    "asia", "americas", "americana", "antarctica", "arctic", "atlantic",
+    "pacific", "indian", "mediterranean", "caribbean", "scandinavia",
+    // corporate suffixes and org words
+    "inc", "llc", "llp", "corp", "co", "company", "ltd", "plc", "gmbh",
+    "sarl", "pty", "bros", "sons", "associates", "partners", "partnership",
+    "corporation", "incorporated", "limited", "enterprises", "holdings",
+    "industries", "international", "worldwide", "global", "national",
+    "university", "college", "school", "academy", "institute", "consortium",
+    "coalition", "alliance", "federation", "union", "guild", "society",
+    "association", "club", "church", "parish", "diocese", "ministry",
+    "ministries", "temple", "mosque", "synagogue", "cathedral", "chapel",
+];
+
+/// Short surname particles allowed inside a multi-token surname.
+const PARTICLES: &[&str] = &[
+    "de", "del", "dela", "der", "den", "di", "da", "le", "la", "las", "los",
+    "van", "von", "bin", "ibn", "al", "el", "st", "san", "santa", "ten",
+    "ter", "vander", "vanden", "du", "des", "het", "op", "zu", "zum", "zur",
+    "af", "av", "dos", "das", "do",
+];
+
+/// Name-suffix words that may follow a given name inside "LAST, FIRST X".
+const NAME_SUFFIX: &[&str] = &[
+    "jr", "sr", "ii", "iii", "iv", "v", "vi", "md", "do", "rn", "np", "pa",
+    "phd", "dmd", "dds", "dpm", "od", "esq", "msw", "lcsw", "lmft", "pt",
+    "ot", "dpt", "mba", "mph", "msn", "bsn", "mbbs", "frcpc", "facp", "facs",
+    "facog", "faap", "faan", "cna", "lpn", "lvn", "ma", "ms", "ba", "bs",
+    "pharmd", "rd", "cdn", "crt", "rrt", "emt", "cma", "cpnp", "fnp",
+];
+
+fn is_stop(tok: &str) -> bool {
+    CLIN_STOP.contains(&tok) || NAME_STOP.contains(&tok)
+}
+
+/// English words that are also common surnames; allowed on the LEFT side of a
+/// "LAST, FIRST" pair despite appearing in a stop list ("DAY, RICH"). Kept
+/// left-only so pairs like "GOOD, DAY" still fail on the other token.
+const LEFT_OK: &[&str] = &[
+    "day", "week", "weeks", "key", "keys", "good", "best", "field", "fields",
+    "page", "pages", "long", "little", "low", "new", "case", "summer",
+    "winter", "dawn", "morning", "noon", "sunrise", "sunset",
+];
+
+/// English words that are also common given names; allowed on the RIGHT side
+/// ("KING, DAWN", "WHITE, WILL").
+const RIGHT_OK: &[&str] = &["will", "summer", "dawn", "morning", "page", "day"];
+
+/// Is this raw token shaped like a name part? Letters plus intra-word
+/// apostrophes/hyphens (O'NEIL, AL-SAYED, MUELLER-SMITH).
+fn name_shaped(tok: &str) -> bool {
+    tok.chars().all(|c| c.is_alphabetic() || c == '-' || c == '\'' || c == '’')
+}
+
+/// Validate one side of a "LAST, FIRST" pair. `right` is the given-name side.
+fn side_ok(raw_toks: &[&str], right: bool) -> bool {
+    let mut toks: Vec<String> = raw_toks.iter()
+        .map(|t| t.trim_end_matches('.').to_lowercase())
+        .collect();
+    if toks.is_empty() { return false; }
+    if right {
+        // Drop credential/suffix tokens first: "SMITH, JOHN MD" -> "JOHN".
+        while toks.len() > 1 && NAME_SUFFIX.contains(&toks.last().unwrap().as_str()) {
+            toks.pop();
+        }
+        // A trailing single capital is a middle initial, not a name token.
+        if toks.len() > 1 {
+            let last_raw = raw_toks[toks.len() - 1].trim_end_matches('.');
+            if last_raw.chars().count() == 1 && last_raw.chars().next().unwrap().is_uppercase() {
+                toks.pop();
+            }
+        }
+        if toks.is_empty() || toks.len() > 2 { return false; }
+    } else if toks.len() > 4 { return false; }
+    for (i, t) in toks.iter().enumerate() {
+        let alpha = t.chars().filter(|c| c.is_alphabetic()).count();
+        // Particles (van, de, al) are fine anywhere inside a surname.
+        if !right && PARTICLES.contains(&t.as_str()) { continue; }
+        // One-letter words and most two-letter words can't be names.
+        if alpha < 3 { return false; }
+        let ok = if right { RIGHT_OK } else { LEFT_OK };
+        if is_stop(t) && !ok.contains(&t.as_str()) { return false; }
+        if right && GEO_STOP.contains(&t.as_str()) { return false; }
+        if !name_shaped(raw_toks[i]) { return false; }
+    }
+    true
+}
+
+/// For the label-colon rule: the captured text is either a plain name
+/// (no comma) or a "LAST, FIRST" pair needing the pair check.
+fn name_or_pair(v: &str, w: &str) -> bool {
+    if v.contains(',') { return name_pair(v, w); }
+    // A leading clinical term ("cc: Cardiology") is not a name; trailing
+    // stops are left for trim_name.
+    match v.split_whitespace().next() {
+        Some(t) => name_shaped(t.trim_end_matches('.')) && !is_stop(&t.trim_end_matches('.').to_lowercase()),
+        None => false,
+    }
+}
+
+/// "SURNAME, GIVEN" pair validator: both sides must look like names and
+/// neither may be a clinical, geographic or generic English term.
+fn name_pair(v: &str, _: &str) -> bool {
+    let Some(comma) = v.find(',') else { return false };
+    let left: Vec<&str> = v[..comma].split_whitespace().collect();
+    let right: Vec<&str> = v[comma + 1..].split_whitespace().collect();
+    side_ok(&left, false) && side_ok(&right, true)
 }
 
 /// Words that follow a name label but are not part of the name.
@@ -473,5 +956,74 @@ mod tests {
         let got: Vec<&str> = propagate_names(t, &spans).iter().map(|s| &t[s.start..s.end]).collect();
         assert_eq!(got, vec!["Karen Whitfield", "Whitfield"]);
         assert!(has("Toronto, ON M6H 4B6", Category::Location, "Toronto"));
+    }
+
+    #[test]
+    fn last_first_all_caps() {
+        // Registration/header style "SURNAME, GIVEN" with no other cue.
+        for (t, want) in [
+            ("MUELLER, GLORIA has reviewed the chart.", "MUELLER, GLORIA"),
+            ("From: HOOVER, JORDAN To: Clinic Staff", "HOOVER, JORDAN"),
+            ("Please ensure MEDINA, DIANA reviews this.", "MEDINA, DIANA"),
+            ("Signed by O'NEIL, PAT today.", "O'NEIL, PAT"),
+            ("Consult sent to VAN DER BERG, ANNA.", "VAN DER BERG, ANNA"),
+            ("Record for SMITH-ALVAREZ, JUNE.", "SMITH-ALVAREZ, JUNE"),
+            ("admitting BALL, ELI for obs.", "BALL, ELI"),
+        ] {
+            assert!(has(t, Category::Name, want), "missed {want:?} in {t:?}: {:?}", found(t));
+        }
+        // Once found, bare repeats in any casing get propagated.
+        let t = "MUELLER, GLORIA signed. Later Mueller returned. Gloria called back.";
+        let spans = crate::merge::merge(t, detect(t));
+        let got: Vec<&str> = propagate_names(t, &spans).iter().map(|s| &t[s.start..s.end]).collect();
+        assert!(got.contains(&"Mueller"), "{got:?}");
+        assert!(got.contains(&"Gloria"), "{got:?}");
+    }
+
+    #[test]
+    fn last_first_mixed_case_needs_cue() {
+        // Strongly cued mixed-case pairs are names.
+        assert!(has("From: Mueller, Gloria To: Clinic", Category::Name, "Mueller, Gloria"));
+        assert!(has("Attn: Mueller, Gloria", Category::Name, "Mueller, Gloria"));
+        assert!(has("cc: O'Neil, Pat", Category::Name, "O'Neil, Pat"));
+        assert!(has("cc: Van der Berg, Anna", Category::Name, "Van der Berg, Anna"));
+        assert!(has("Contact Mueller, Gloria DOB 03/14/1958", Category::Name, "Mueller, Gloria"));
+        // Uncued mixed-case "X, Y" stays untouched.
+        for t in [
+            "She moved to Mueller, Gloria last year.",
+            "Springfield, Illinois is home.",
+            "the capital of Austin, Texas",
+            "Toronto, ON is north of here.",
+        ] {
+            assert!(!found(t).iter().any(|(c, _)| *c == Category::Name),
+                "uncued mixed pair redacted in {t:?}: {:?}", found(t));
+        }
+    }
+
+    #[test]
+    fn caps_pairs_clinical_negatives() {
+        // All-caps headers, symptom lists and drug lists are not names.
+        for t in [
+            "HISTORY, PHYSICAL EXAM reviewed.",
+            "ASSESSMENT, PLAN as follows.",
+            "NAUSEA, VOMITING, AND DIARRHEA denied.",
+            "CHEST PAIN, DYSPNEA on exertion.",
+            "ASPIRIN, METOPROLOL, LISINOPRIL daily.",
+            "SUBJECTIVE, OBJECTIVE sections.",
+            "HEART, LUNG, AND KIDNEY function.",
+            "NOW, THEREFORE, the parties agree.",
+            "GET, POST requests logged.",
+            "JPEG, PNG files attached.",
+            "HEAD, NECK exam normal.",
+            "CC: CARDIOLOGY, RADIOLOGY",
+            "DENIES FEVER, CHILLS.",
+            "PORTLAND, MAINE resident.",
+            "SPRINGFIELD, USA office.",
+            "ACME, INC was contacted.",
+            "STAGE II, III disease.",
+        ] {
+            assert!(!found(t).iter().any(|(c, _)| *c == Category::Name),
+                "false positive name in {t:?}: {:?}", found(t));
+        }
     }
 }
