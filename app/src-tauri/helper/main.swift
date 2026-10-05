@@ -231,23 +231,33 @@ func loadPages(_ path: String) -> [(CGImage, CGSize)] {
     return pages
 }
 
-/// OCR one page image into JSON: lines in reading order, words with character
-/// offsets into the line text and pixel boxes (top-left origin). Vision boxes
-/// are normalised, bottom-left origin.
-func ocrBoxesJson(_ image: CGImage) -> [String: Any] {
+// A line as Vision saw it, in pixel coords (top-left origin).
+struct OcrLineRec {
+    var text: String
+    var box: CGRect
+    var words: [(text: String, start: Int, end: Int, box: CGRect)]
+}
+
+/// Run Vision over an image and return lines with per-word pixel boxes.
+/// Boxes come back normalised, bottom-left origin; here they become pixels,
+/// top-left origin. When Vision can't box a word we slice the line's box
+/// proportionally so the redaction still covers it.
+func recogniseLines(_ image: CGImage) -> [OcrLineRec] {
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = .accurate
     request.usesLanguageCorrection = false   // identifiers must come through verbatim
     let handler = VNImageRequestHandler(cgImage: image, options: [:])
-    do { try handler.perform([request]) } catch { fail(5, "text recognition failed: \(error.localizedDescription)") }
+    guard let _ = try? handler.perform([request]) else { return [] }
 
-    let w = Double(image.width), h = Double(image.height)
-    var lines: [[String: Any]] = []
+    let w = CGFloat(image.width), h = CGFloat(image.height)
+    var lines: [OcrLineRec] = []
     for obs in request.results ?? [] {
         guard let cand = obs.topCandidates(1).first else { continue }
         let lineText = cand.string
         let lb = obs.boundingBox
-        var words: [[String: Any]] = []
+        let linePx = CGRect(x: lb.minX * w, y: (1 - lb.maxY) * h,
+                            width: lb.width * w, height: lb.height * h)
+        var words: [(String, Int, Int, CGRect)] = []
         var idx = lineText.startIndex
         while idx < lineText.endIndex {
             while idx < lineText.endIndex && lineText[idx].isWhitespace { idx = lineText.index(after: idx) }
@@ -260,24 +270,158 @@ func ocrBoxesJson(_ image: CGImage) -> [String: Any] {
             let ce = lineText.distance(from: lineText.startIndex, to: idx)
             var wb: CGRect?
             if let o = try? cand.boundingBox(for: range) { wb = o.boundingBox }
-            if wb == nil {
-                // No per-word box: slice the line's box proportionally so the
-                // redaction still covers the word.
+            var wordPx: CGRect
+            if let b = wb, b.width > 0.002, b.height > 0.002 {
+                wordPx = CGRect(x: b.minX * w, y: (1 - b.maxY) * h,
+                                width: b.width * w, height: b.height * h)
+            } else {
+                // No usable per-word box: slice the line's box proportionally.
                 let total = max(1, lineText.count)
-                let x0 = lb.minX + lb.width * CGFloat(cs) / CGFloat(total)
-                let x1 = lb.minX + lb.width * CGFloat(ce) / CGFloat(total)
-                wb = CGRect(x: x0, y: lb.minY, width: max(0.001, x1 - x0), height: lb.height)
+                let x0 = linePx.minX + linePx.width * CGFloat(cs) / CGFloat(total)
+                let x1 = linePx.minX + linePx.width * CGFloat(ce) / CGFloat(total)
+                wordPx = CGRect(x: x0, y: linePx.minY, width: max(1, x1 - x0), height: linePx.height)
             }
-            let b = wb!
-            // normalised bottom-left → pixel top-left
-            words.append([
-                "text": word, "start": cs, "end": ce,
-                "box": [b.minX * w, (1 - b.maxY) * h, b.width * w, b.height * h],
-            ])
+            words.append((word, cs, ce, wordPx))
         }
-        lines.append(["text": lineText, "words": words])
+        lines.append(OcrLineRec(text: lineText, box: linePx, words: words))
     }
-    return ["width": image.width, "height": image.height, "lines": lines]
+    return lines
+}
+
+/// Downscale to grayscale to find rows/columns that actually hold ink.
+/// Returns (buf, w, h, scale) where buf is one byte per pixel (0 black).
+func inkMap(_ image: CGImage, scale s: Int) -> ([UInt8], Int, Int, Int)? {
+    let w = max(1, image.width / s), h = max(1, image.height / s)
+    var buf = [UInt8](repeating: 255, count: w * h)
+    guard let ctx = CGContext(data: &buf, width: w, height: h,
+                              bitsPerComponent: 8, bytesPerRow: w,
+                              space: CGColorSpaceCreateDeviceGray(),
+                              bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return nil }
+    ctx.interpolationQuality = .high
+    ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+    return (buf, w, h, s)
+}
+
+/// Maximal runs of consecutive rows/columns holding ink (any pixel < 220).
+func inkRuns(_ buf: [UInt8], _ w: Int, _ h: Int, horizontal: Bool) -> [(Int, Int)] {
+    var runs: [(Int, Int)] = []
+    var runStart: Int? = nil
+    let outer = horizontal ? h : w, inner = horizontal ? w : h
+    for o in 0..<outer {
+        var ink = false
+        for i in 0..<inner {
+            let p = horizontal ? buf[o * w + i] : buf[i * w + o]
+            if p < 220 { ink = true; break }
+        }
+        if ink && runStart == nil { runStart = o }
+        if !ink, let s = runStart { runs.append((s, o)); runStart = nil }
+    }
+    if let s = runStart { runs.append((s, outer)) }
+    // Merge runs separated by a hairline gap (≤3 cells) — halves of one line.
+    var merged: [(Int, Int)] = []
+    for r in runs {
+        if let last = merged.last, r.0 - last.1 <= 3 { merged[merged.count - 1].1 = r.1 }
+        else { merged.append(r) }
+    }
+    return merged
+}
+
+/// Intersection-over-union of two rects; 0 when disjoint.
+func iou(_ a: CGRect, _ b: CGRect) -> CGFloat {
+    let i = a.intersection(b)
+    if i.isNull || i.width <= 0 || i.height <= 0 { return 0 }
+    let inter = i.width * i.height
+    return inter / (a.width * a.height + b.width * b.height - inter)
+}
+
+/// OCR a page image: the full-page pass plus a per-row supplementary pass.
+///
+/// `VNRecognizeTextRequest` on a whole page can merge two visual rows into one
+/// observation (recognising only the first — its box then covers both) or drop
+/// a row outright, and occasionally truncates a line end. Any of those would
+/// leave identifier pixels unpainted, so rows also come from
+/// `VNDetectTextRectanglesRequest` character boxes (reliable per-row geometry
+/// where the recogniser's is not): each row band is cropped and recognised on
+/// its own, and a band that reads nothing is retried with a taller crop.
+///
+/// Both passes' lines are emitted — no deduplication. A word recognised twice
+/// yields the same box twice; boxes overlap harmlessly when painted, and a
+/// duplicate name in the assembled text only makes the span count run a little
+/// high. Missing a row is fatal to coverage; a duplicate is cosmetic.
+func recognisePage(_ image: CGImage) -> [OcrLineRec] {
+    let W = CGFloat(image.width), H = CGFloat(image.height)
+    var lines = recogniseLines(image)
+
+    let det = VNDetectTextRectanglesRequest()
+    det.reportCharacterBoxes = true
+    do { try VNImageRequestHandler(cgImage: image, options: [:]).perform([det]) }
+    catch { fail(5, "text detection failed: \(error.localizedDescription)") }
+
+    struct Band { var top: CGFloat; var bot: CGFloat; var charH: [CGFloat] }
+    var bands: [Band] = []
+    for obs in det.results ?? [] {
+        var band = Band(top: (1 - obs.boundingBox.maxY) * H,
+                        bot: (1 - obs.boundingBox.minY) * H, charH: [])
+        for cb in obs.characterBoxes ?? [] {
+            let r = cb.boundingBox
+            band.top = min(band.top, (1 - r.maxY) * H)
+            band.bot = max(band.bot, (1 - r.minY) * H)
+            band.charH.append(r.height * H)
+        }
+        bands.append(band)
+    }
+    bands.sort { $0.top < $1.top }
+    let allH = bands.flatMap { $0.charH }.sorted()
+    let medCharH = allH.isEmpty ? CGFloat(16) : allH[allH.count / 2]
+
+    /// OCR one crop; word boxes offset back into page coordinates.
+    func ocrRows(_ r: CGRect) -> [OcrLineRec] {
+        guard r.width > 6, r.height > 6, let sub = image.cropping(to: r) else { return [] }
+        var ls = recogniseLines(sub)
+        for i in ls.indices {
+            ls[i].box = ls[i].box.offsetBy(dx: r.minX, dy: r.minY)
+            for wi in ls[i].words.indices {
+                ls[i].words[wi].box = ls[i].words[wi].box.offsetBy(dx: r.minX, dy: r.minY)
+            }
+        }
+        return ls
+    }
+
+    // Every row band gets its own recognition pass; a mis-segmented or
+    // truncated whole-page line is shadowed by the band's better read.
+    let pad = max(4, medCharH * 0.45)
+    for band in bands {
+        let rect = CGRect(x: 0, y: max(0, band.top - pad), width: W,
+                          height: min(H, band.bot + pad) - max(0, band.top - pad))
+        var got = ocrRows(rect)
+        if got.isEmpty {
+            got = ocrRows(rect.insetBy(dx: 0, dy: -10)
+                .intersection(CGRect(x: 0, y: 0, width: W, height: H)))
+        }
+        lines.append(contentsOf: got)
+    }
+
+    // Reading order: top to bottom, left to right.
+    lines.sort { (a, b) in
+        let ay = a.words.map { $0.box.minY }.min() ?? a.box.minY
+        let by = b.words.map { $0.box.minY }.min() ?? b.box.minY
+        if abs(ay - by) > 8 { return ay < by }
+        let ax = a.words.map { $0.box.minX }.min() ?? a.box.minX
+        let bx = b.words.map { $0.box.minX }.min() ?? b.box.minX
+        return ax < bx
+    }
+    return lines
+}
+
+/// OCR one page image into the JSON contract (see the header comment).
+func ocrBoxesJson(_ image: CGImage) -> [String: Any] {
+    let lines = recognisePage(image)
+    return ["width": image.width, "height": image.height, "lines": lines.map { l in
+        ["text": l.text,
+         "box": [l.box.minX, l.box.minY, l.box.width, l.box.height],
+         "words": l.words.map { ["text": $0.text, "start": $0.start, "end": $0.end,
+                                "box": [$0.box.minX, $0.box.minY, $0.box.width, $0.box.height]] }]
+    }]
 }
 
 func ocrBoxes(_ path: String) -> Never {

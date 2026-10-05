@@ -31,6 +31,10 @@ pub struct OcrWord {
 #[derive(Debug, Clone, Deserialize)]
 pub struct OcrLine {
     pub text: String,
+    /// The line's own pixel box — the fallback when a word's box is missing
+    /// or degenerate. Optional for hand-built fixtures; the helper emits it.
+    #[serde(default)]
+    pub bbox: Option<[f64; 4]>,
     pub words: Vec<OcrWord>,
 }
 
@@ -97,7 +101,18 @@ impl OcrDoc {
             for (wi, w) in line.words.iter().enumerate() {
                 let Some((s, e)) = self.word_bytes(page, li, wi) else { continue };
                 if s < span.end && span.start < e {
-                    let [x, y, bw, bh] = w.bbox;
+                    let [mut x, mut y, mut bw, mut bh] = w.bbox;
+                    if bw < 2.0 || bh < 2.0 {
+                        // Degenerate/missing word box: fall back to a
+                        // proportional slice of the line's box so the
+                        // redaction still covers the word.
+                        if let Some([lx, ly, lw, lh]) = line.bbox {
+                            let total = line.text.chars().count().max(1) as f64;
+                            let x0 = lx + lw * w.start as f64 / total;
+                            let x1 = lx + lw * w.end as f64 / total;
+                            x = x0; y = ly; bw = (x1 - x0).max(1.0); bh = lh;
+                        }
+                    }
                     let x0 = (x - BOX_PAD).max(0.0);
                     let y0 = (y - BOX_PAD).max(0.0);
                     out.push([
@@ -190,6 +205,10 @@ pub fn find_helper() -> Option<std::path::PathBuf> {
             if let Some(res) = dir.parent().map(|c| c.join("Resources").join("bin").join("scotoma-helper")) {
                 v.push(res);
             }
+            // Dev builds: target/{release,debug}/scotoma → repo/app/src-tauri/bin.
+            if let Some(repo) = dir.parent().and_then(|t| t.parent()) {
+                v.push(repo.join("app").join("src-tauri").join("bin").join("scotoma-helper"));
+            }
         }
     }
     v.push("app/src-tauri/bin/scotoma-helper".into());
@@ -271,7 +290,21 @@ mod tests {
         assert_eq!(b.len(), 3);
         assert!(b.iter().all(|bb| bb[2] > 0.0 && bb[3] > 0.0));
     }
-
+    #[test]
+    fn degenerate_word_box_falls_back_to_line_slice() {
+        // Vision can return a null/zero-size box for an odd glyph run; the
+        // redaction must still cover the word via the line's box.
+        let d = doc(r#"{"pages":[{"width":200,"height":50,"lines":[
+            {"text":"call Dana Miller","bbox":[0,0,100,20],"words":[
+                {"text":"call","start":0,"end":4,"box":[2,4,20,10]},
+                {"text":"Dana","start":5,"end":9,"box":[0,0,0,0]},
+                {"text":"Miller","start":10,"end":16,"box":[60,4,30,10]}]}]}]}"#);
+        let text = d.page_text(0);
+        let b = d.boxes_for_span(0, &span(&text, "Dana"));
+        assert_eq!(b.len(), 1);
+        assert!(b[0][2] > 5.0 && b[0][3] > 5.0, "fallback slice: {:?}", b[0]);
+        assert!(b[0][0] > 0.0, "slice is positioned, x0={}", b[0][0]);
+    }
     #[test]
     fn span_across_line_break() {
         let d = doc(r#"{"pages":[{"width":200,"height":80,"lines":[

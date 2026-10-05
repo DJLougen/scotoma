@@ -4,7 +4,7 @@
 //!   scotoma eval   DATA.jsonl [--model DIR | --predictions PREDS.jsonl] [--strict] [--threshold P] [--limit N] [--misses N] [--json]
 //!   scotoma sweep  DATA.jsonl --model DIR [--limit N] [--thresholds 0.02,0.05,...] [--json]
 //!   scotoma convert IN.jsonl OUT.jsonl                # map any label set to Scotoma categories
-//!   scotoma redact-file IN.(png|jpg|tiff|pdf) OUT [--model DIR] [--threshold P] [--json]   # macOS: black-box identifiers in a scan
+//!   scotoma redact-file IN.(png|jpg|tiff|pdf) OUT [--model DIR|--rules-only] [--threshold P] [--json]   # macOS: black-box identifiers in a scan
 //!
 //! eval also takes: --no-rules (score the model alone), --responses FILE.csv (per-item outcomes).
 //! --predictions replays spans written by bench/predict_external.py (one JSONL line per
@@ -29,6 +29,8 @@ struct Args {
     cmd: String,
     path: Option<String>,
     model: Option<String>,
+    /// --no-model / --rules-only: don't auto-pick a bundled default model.
+    no_model: bool,
     surrogate: bool,
     json: bool,
     limit: Option<usize>,
@@ -47,12 +49,12 @@ struct Args {
 fn parse() -> Result<Args, String> {
     let mut it = std::env::args().skip(1);
     let cmd = it.next().ok_or("usage: scotoma <scrub|eval|sweep> [options]")?;
-    let mut a = Args { cmd, path: None, model: std::env::var("SCOTOMA_MODEL").ok(), surrogate: false, json: false, limit: None, misses: 25, cfg: Config::default(), threshold_set: false, path2: None, responses: None, out_dir: None, configs: Vec::new(), predictions: None, thresholds: None };
+    let mut a = Args { cmd, path: None, model: std::env::var("SCOTOMA_MODEL").ok(), no_model: false, surrogate: false, json: false, limit: None, misses: 25, cfg: Config::default(), threshold_set: false, path2: None, responses: None, out_dir: None, configs: Vec::new(), predictions: None, thresholds: None };
     while let Some(x) = it.next() {
         let mut val = |n: &str| it.next().ok_or(format!("{n} needs a value"));
         match x.as_str() {
             "--model" => a.model = Some(val("--model")?),
-            "--no-model" => a.model = None,
+            "--no-model" | "--rules-only" => { a.model = None; a.no_model = true; }
             "--surrogate" => a.surrogate = true,
             "--strict" => a.cfg.strict = true,
             "--no-rules" => a.cfg.use_rules = false,
@@ -73,6 +75,28 @@ fn parse() -> Result<Args, String> {
         }
     }
     Ok(a)
+}
+/// Places `redact-file` looks for a model when none is named: SCOTOMA_MODEL is
+/// handled at arg-parse time; these are the bundled-default spots.
+fn default_model_dirs() -> Vec<std::path::PathBuf> {
+    let mut v = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        // Inside an .app bundle: <app>/Contents/MacOS/../Resources/models/default.
+        if let Some(contents) = exe.parent().and_then(|p| p.parent()) {
+            v.push(contents.join("Resources").join("models").join("default"));
+        }
+        // From a repo layout (target/release/scotoma): walk up to the repo
+        // root and try models/default and app/src-tauri/models/default.
+        for anc in exe.ancestors() {
+            v.push(anc.join("models").join("default"));
+            v.push(anc.join("app").join("src-tauri").join("models").join("default"));
+            if anc.join("Cargo.toml").is_file() { break }
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        v.push(cwd.join("models").join("default"));
+    }
+    v
 }
 
 fn scrubber(a: &mut Args) -> Result<Scrubber, String> {
@@ -135,6 +159,17 @@ fn run() -> Result<(), String> {
             {
                 let input = a.path.clone().ok_or("redact-file needs IN OUT")?;
                 let out = a.path2.clone().ok_or("redact-file needs IN OUT")?;
+                // No --model and no --rules-only: look for the bundled
+                // default model (app/src-tauri/models/default, an .app's
+                // Resources, or the working directory).
+                if a.model.is_none() && !a.no_model && a.predictions.is_none() {
+                    for d in default_model_dirs() {
+                        if d.join("model_quantized.onnx").is_file() || d.join("model.onnx").is_file() {
+                            a.model = Some(d.to_string_lossy().into_owned());
+                            break;
+                        }
+                    }
+                }
                 let sc = scrubber(&mut a)?;
                 let report = scotoma_core::redact::redact_document(
                     &sc,
@@ -150,11 +185,13 @@ fn run() -> Result<(), String> {
                         "counts": report.counts,
                         "boxes": report.boxes,
                         "spans": report.spans,
+                        "engine": engine_name(&sc),
                     }));
                 } else {
                     let counts = report.counts.iter().map(|(k, v)| format!("{k}×{v}")).collect::<Vec<_>>().join(" ");
                     println!("{} words OCR'd, {} identifiers ({}), {} boxes painted → {}",
                         report.words, report.spans.len(), counts, report.boxes, out);
+                    eprintln!("engine: {}", engine_name(&sc));
                 }
             }
         }
