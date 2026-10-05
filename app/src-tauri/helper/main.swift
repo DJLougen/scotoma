@@ -72,7 +72,25 @@ func ocrClipboard() -> Never {
     exit(0)
 }
 
+// screencapture -i takes the next mouse/keyboard events as part of the
+// selection. Started while the hotkey's modifiers are still held, or while the
+// mouse button that clicked "Capture" is still down, it sees those releases
+// and cancels at once. So wait until the user has let go of everything.
+func waitForInputIdle() {
+    let mods: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
+    let deadline = Date().addingTimeInterval(4)
+    while Date() < deadline {
+        let held = !CGEventSource.flagsState(.combinedSessionState).intersection(mods).isEmpty
+            || CGEventSource.buttonState(.combinedSessionState, button: .left)
+            || CGEventSource.buttonState(.combinedSessionState, button: .right)
+        if !held { break }
+        usleep(15_000)
+    }
+    usleep(120_000)   // let the release events drain before the overlay appears
+}
+
 func capture() -> Never {
+    waitForInputIdle()
     let pb = NSPasteboard.general
     let before = pb.changeCount
     let p = Process()

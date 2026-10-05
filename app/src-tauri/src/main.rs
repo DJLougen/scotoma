@@ -262,10 +262,16 @@ fn ocr_then_review(app: &AppHandle, verb: &'static str) {
         return notify(app, if verb == "ocr" { "The clipboard has no text to clean." } else { "Screen capture is only available on macOS for now." });
     };
     if state.capturing.swap(true, Ordering::SeqCst) { return; }
+    // Get the (always-on-top) window out of the way so it neither hides what
+    // the user wants to capture nor catches the selection clicks.
+    let reshow = verb == "capture" && app.get_webview_window("main").map(|w| w.is_visible().unwrap_or(false)).unwrap_or(false);
+    if reshow { if let Some(w) = app.get_webview_window("main") { let _ = w.hide(); } }
     let app = app.clone();
     std::thread::spawn(move || {
         let mut t0 = Instant::now();
         let out = Command::new(&helper).arg(verb).stdin(Stdio::null()).output();
+        let ok = matches!(out.as_ref().map(|o| o.status.code()), Ok(Some(0)));
+        if reshow && !ok { show_window(&app); }
         // For an interactive capture the drag itself is the user's time, not ours.
         if verb == "capture" { t0 = Instant::now(); }
         let state = app.state::<AppState>();
