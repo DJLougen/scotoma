@@ -11,4 +11,4 @@ config.json. A config.json may carry "scotoma_threshold" (and
 "scotoma_domain") to set the default redaction threshold this model runs at;
 0.02 is the clinical operating point. Without it the app still works, on
 rules alone, and says so in the window.
-Shipped model: v1-small (sha256 f3ea1a68...), installed with scripts/install_model.sh models/v1-small 0.02 on 2026-10-05 after sealed evaluation 2.
+Shipped model: scotoma-small (dev name v2-small, sha256 33be2438...), installed with scripts/install_model.sh models/scotoma-small 0.02 on 2026-10-05 after sealed evaluation 3. Published as huggingface.co/DJLougen/scotoma-small.

@@ -7,7 +7,7 @@ hand-typed into a figure.
 
     .venv/bin/python plots/make_card_figures.py
 
-Writes PNGs to release/hf/scotoma-clinical-deid-v2/assets/ and copies them to
+Writes PNGs to release/hf/scotoma-small/assets/ and copies them to
 docs/img/. Prints every plotted value as JSON at the end.
 
 before_after.png additionally shells out to cupsfilter, the release `scotoma`
@@ -34,7 +34,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / "bench" / "results"
-ASSETS = ROOT / "release" / "hf" / "scotoma-clinical-deid-v2" / "assets"
+ASSETS = ROOT / "release" / "hf" / "scotoma-small" / "assets"
 DOCS_IMG = ROOT / "docs" / "img"
 
 # Okabe-Ito palette
@@ -183,7 +183,7 @@ def fig_hero():
     panel(ax_a, "with Scotoma rules", [
         (roml35["docs_with_leak"], C_OML, "OpenMed-large @0.35"),
         (roml10["docs_with_leak"], C_OML, "OpenMed-large @0.10"),
-        (rours["docs_with_leak"], C_OURS, "ours (v2-small)"),
+        (rours["docs_with_leak"], C_OURS, "Scotoma-small"),
     ])
     ax_a.invert_yaxis()
     ax_a.set_xlim(0, 118)
@@ -193,7 +193,7 @@ def fig_hero():
     panel(ax_b, "model alone (no rules)", [
         (oml35["docs_with_leak"], C_OML, "OpenMed-large @0.35"),
         (oml10["docs_with_leak"], C_OML, "OpenMed-large @0.10"),
-        (ours["docs_with_leak"], C_OURS, "ours (v2-small)"),
+        (ours["docs_with_leak"], C_OURS, "Scotoma-small"),
     ])
     ax_b.invert_yaxis()
     ax_b.set_xlim(0, 800)
@@ -204,7 +204,7 @@ def fig_hero():
     ys = np.arange(2) * 0.42
     ax_c.barh(ys, vals, height=0.28, color=[C_OML, C_OURS])
     ax_c.set_yticks(ys)
-    ax_c.set_yticklabels(["OpenMed-large", "ours"], fontsize=9.5, color=C_INK)
+    ax_c.set_yticklabels(["OpenMed-large", "Scotoma-small"], fontsize=9.5, color=C_INK)
     ax_c.set_ylim(-0.32, 0.78)
     ax_c.set_xscale("log")
     ax_c.set_xlim(0.12, 9)
@@ -654,7 +654,7 @@ def fig_before_after():
         in_png, out_png = td / "in.png", td / "out.png"
         _render_note(src, in_png)
         subprocess.run([str(scotoma), "redact-file", str(in_png), str(out_png),
-                        "--model", str(ROOT / "models" / "v2-small")],
+                        "--model", str(ROOT / "models" / "scotoma-small")],
                        check=True, capture_output=True)
         ocr = subprocess.run([str(helper), "ocr-boxes", str(out_png)],
                              check=True, capture_output=True)

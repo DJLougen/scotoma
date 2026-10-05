@@ -12,14 +12,14 @@ tags:
 - clinical
 datasets:
 - nvidia/Nemotron-PII
-thumbnail: https://huggingface.co/DJLougen/scotoma-clinical-deid/resolve/main/assets/hero.png
+thumbnail: https://huggingface.co/DJLougen/scotoma-small/resolve/main/assets/hero.png
 ---
 
-# Scotoma Clinical De-Identification v2 (small)
+# Scotoma-small
 
 **Support on [Ko-fi](https://ko-fi.com/djlougen) or X Money: [@DJLougen](https://x.com/DJLougen)**
 
-`v2-small` is the token classifier inside [Scotoma](https://github.com/DJLougen/scotoma), an on-device clinical
+`scotoma-small` is the token classifier inside [Scotoma](https://github.com/DJLougen/scotoma), an on-device clinical
 PHI redaction app for macOS (Tauri + Rust). It is
 `microsoft/deberta-v3-small` (141M parameters, 98M of which are the embedding
 table) fine-tuned to tag 21 HIPAA Safe-Harbor-style identifier categories, then
@@ -197,7 +197,10 @@ sealed evaluation 1 (874 notes, v0 model) was a significant loss to
 OpenMed-large@0.1+rules (1.9%/1.7% vs 0.5%) — that result drove the v1
 training-data work.
 
-### Sealed evaluation 3 (7,108 notes per set; **this model**, v2-small + rules)
+> **Naming:** scotoma-small was called `v2-small` during development. The pre-registrations and logs under
+> `bench/results/` (SEALED3_PREREG.md, SEALED3_LOG.md) use that name; it is the same file (sha256 `33be2438…87e41`).
+
+### Sealed evaluation 3 (7,108 notes per set; **this model**, scotoma-small + rules)
 
 A powered re-match vs rules+OpenMed-large@0.1, pre-registered before scoring
 (exact two-sided McNemar on per-note leak indicators, α = 0.05; secondary tests
@@ -205,8 +208,8 @@ listed in `SEALED3_PREREG.md`). Final, 2026-10-05:
 
 | system | familiar formats (clin3) | novel formats (clin3_novel) |
 |---|---|---|
-| v2-small alone | 4 leaked notes (0.06%) | 3 leaked notes (0.04%) |
-| rules + v2-small | **2 leaked notes (0.03%)** | **1 leaked note (0.01%)** |
+| scotoma-small alone | 4 leaked notes (0.06%) | 3 leaked notes (0.04%) |
+| rules + scotoma-small | **2 leaked notes (0.03%)** | **1 leaked note (0.01%)** |
 | OpenMed-large @0.1 alone | 407 leaked notes (5.7%) | 210 leaked notes (3.0%) |
 | rules + OpenMed-large @0.1 | 26 leaked notes (0.37%) | 33 leaked notes (0.46%) |
 | OpenMed-large @0.35 alone (secondary) | 680 leaked notes (9.6%) | 495 leaked notes (7.0%) |
@@ -219,14 +222,14 @@ listed in `SEALED3_PREREG.md`). Final, 2026-10-05:
 - Bootstrap CI of the difference: +0.3 percentage points, 95% CI [+0.2, +0.5].
 - Over-redaction (must be ≤ 1%): ours 0.1% alone, 0.2% with rules;
   OpenMed-large 0.1–0.3% alone, 0.3–0.5% with rules.
-- Latency: ~20 ms/note for v2-small vs ~240 ms/note for OpenMed-large on an
+- Latency: ~20 ms/note for scotoma-small vs ~240 ms/note for OpenMed-large on an
   M3 Max CPU; per-note CPU cost measured on a 20-core ARM Linux workstation
   was ~0.2 s vs ~4 s (some sealed-3 runs ran off-Mac at the same commit and
   sha256, with exact dev parity — see `SEALED3_LOG.md`).
 
 Pre-registered dev-set selection (clin2_dev + clin2_novel_dev, rules + model
-@0.02): v1-small leaked 6 notes total (4 + 2), v2-small leaked 2 (2 + 0) with
-over-redaction ≤ 0.2% — so v2-small is the "ours" candidate.
+@0.02): v1-small leaked 6 notes total (4 + 2), v2-small (released as scotoma-small) leaked 2 (2 + 0) with
+over-redaction ≤ 0.2% — so it is the "ours" candidate.
 
 <p align="center">
 <img src="assets/progress.png" alt="Sealed 1 → 2 → 3 vs rules+OpenMed-large@0.10: lost, tied, won" width="540">&nbsp;
@@ -277,8 +280,8 @@ over-redaction ≤ 0.2% — so v2-small is the "ours" candidate.
 ## Citation
 
 ```bibtex
-@misc{scotoma-clinical-deid-v2,
-  title  = {Scotoma clinical de-identification model v2-small},
+@misc{scotoma-small,
+  title  = {Scotoma-small: on-device clinical de-identification},
   author = {Daniel Lougen},
   year   = {2026},
   note   = {ONNX, per-channel int8; sha256 33be2438...}

@@ -4,7 +4,7 @@ How Scotoma is measured, every number we publish, and how to reproduce each one.
 All raw artefacts live in [`bench/results/`](../bench/results/); every table here
 says which file it was copied from.
 
-Sealed 3 (7,108 notes per set, model `v2-small`) is final as of 2026-10-05 and
+Sealed 3 (7,108 notes per set, model `scotoma-small`) is final as of 2026-10-05 and
 is the headline result; sealed 2 (860 notes per set, model `v1-small`) remains
 below as the full field comparison.
 
@@ -15,7 +15,7 @@ below as the full field comparison.
 - Constraint: **over-redaction ≤ 1 %** — the share of ordinary text redacted by
   mistake. A system that blacks out everything has perfect recall, so we never
   report leak rate without it.
-- Sealed 3 (final): our shipped configuration (`v2-small` + rules) leaked
+- Sealed 3 (final): our shipped configuration (`scotoma-small` + rules) leaked
   **2 of 7,108 notes (0.03 %)** vs 26 (0.37 %) for rules +
   OpenMed-PII-SuperClinical-Large (fp32) at its best pre-registered threshold —
   a **significant win** (exact McNemar p = 8.0 × 10⁻⁷) at about **1/20 the CPU
@@ -152,7 +152,10 @@ familiar set, and on the novel set beats @0.35 and ties @0.10.
 Precision of rules+ours-v1 is 99.7 %; rules+OpenMed-large @0.10 is
 97.5–97.7 %.
 
-## Sealed 3 — final (7,108 notes per set, model `v2-small`, int8 @ 0.02)
+> **Naming:** scotoma-small was called `v2-small` during development. The pre-registrations and logs under
+> `bench/results/` (SEALED3_PREREG.md, SEALED3_LOG.md) use that name; it is the same file (sha256 `33be2438…87e41`).
+
+## Sealed 3 — final (7,108 notes per set, model `scotoma-small`, int8 @ 0.02)
 
 Sources: [SEALED3_RESULTS.md](../bench/results/SEALED3_RESULTS.md), raw tables
 under [sealed3/](../bench/results/sealed3/) (`clin3_test_ours/`,
@@ -165,7 +168,7 @@ clin3 scoring); log: [SEALED3_LOG.md](../bench/results/SEALED3_LOG.md).
   (test-only formats), 7,108 accepted notes each — sized by the power
   simulation in the pre-registration so a real difference from OpenMed-large
   could be detected.
-- Model: `models/v2-small` (per-channel int8, sha256
+- Model: `models/scotoma-small` (per-channel int8, sha256
   `33be24386b0bbdb2758a86087140f7a4a93bd21923a85fe20085bf611ba87e41`),
   selected over v1-small by the pre-registered dev rule (2 vs 6 total leak
   docs on clin2 dev + novel dev, over-redaction 0.2 %).
@@ -176,7 +179,7 @@ On `clin3_test`, rules+ours vs rules+OpenMed-large (fp32) @0.10:
 
 | | notes with a leak | over-redaction |
 |---|---|---|
-| **rules + ours (v2-small, int8 @0.02)** | **2 / 7,108 (0.03 %)** | 0.2 % |
+| **rules + ours (scotoma-small, int8 @0.02)** | **2 / 7,108 (0.03 %)** | 0.2 % |
 | rules + OpenMed-large @0.10 | 26 / 7,108 (0.37 %) | 0.5 % |
 
 Discordant notes: only ours leaked on 1, only OpenMed-large leaked on 25, both
@@ -286,8 +289,8 @@ python bench/build_novel.py --spec bench/data/clin_spec.jsonl \
 # 5. score every system through the same pipeline (one dir per threshold)
 python bench/run.py bench/data/clin_test.jsonl \
     --system rules \
-    --system ours=models/v2-small \
-    --system rules+ours=models/v2-small \
+    --system ours=models/scotoma-small \
+    --system rules+ours=models/scotoma-small \
     --system openmed-large=models/openmed-large-fp32 \
     --system rules+openmed-large=models/openmed-large-fp32 \
     --system gliner-nvidia@preds/gliner-nvidia_clin_test.jsonl \

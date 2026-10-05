@@ -28,7 +28,7 @@ open model, pre-registered before scoring ([SEALED3_RESULTS.md](bench/results/SE
 
 | system (clin3, familiar formats) | notes with a leak | over-redaction | ms/note (CPU) |
 |---|---|---|---|
-| **rules + Scotoma v2-small** (int8 @0.02) | **2 / 7,108 (0.03 %)** | 0.2 % | ~20 |
+| **rules + Scotoma-small** (int8 @0.02) | **2 / 7,108 (0.03 %)** | 0.2 % | ~20 |
 | rules + OpenMed-PII-SuperClinical-Large-434M (fp32) @0.10 | 26 / 7,108 (0.37 %) | 0.5 % | ~240 |
 
 **Significant win**: exact two-sided McNemar p = 8.0 × 10⁻⁷ (discordant notes 1 vs 25),
@@ -58,7 +58,7 @@ The full field — sealed 2, 860 notes per set, 2026-10-05, model v1-small
 Verdicts (paired bootstrap 95 % CI): significant wins over every competitor except
 OpenMed-large @0.10 + rules — then a statistical tie (2 vs 5 leaked notes), since resolved by
 the powered sealed-3 win above — and OpenMed-small @0.02 + rules on familiar formats (tie).
-The currently bundled model is **v2-small** (sha256 `33be2438…87e41`).
+The currently bundled model is **scotoma-small** (sha256 `33be2438…87e41`).
 
 Honest history: in sealed 1 the same OpenMed-large configuration **beat** our v0 model (0.5 %
 vs 1.9 % / 1.7 %). [Details](docs/BENCHMARK.md#sealed-1--final-874-notes-per-set-model-scotoma-v0-int8-002).
@@ -85,7 +85,7 @@ Without a model folder the app runs on rules alone and says so in the header. Th
 ```sh
 cargo run --release -p scotoma -- scrub < note.txt          # redact to stdout
 cargo run --release -p scotoma -- eval eval/fixtures/clinical_smoke.jsonl --no-model
-cargo run --release -p scotoma -- sweep eval/fixtures/clinical_smoke.jsonl --model models/v2-small
+cargo run --release -p scotoma -- sweep eval/fixtures/clinical_smoke.jsonl --model models/scotoma-small
 ```
 
 ## How it works

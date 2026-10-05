@@ -1,11 +1,11 @@
 #!/bin/sh
-# Stage scotoma v2-small artefacts into the HF repo dir for manual upload.
+# Stage scotoma scotoma-small artefacts into the HF repo dir for manual upload.
 # Copies files; prints sha256; never uploads.
 set -eu
 
 REPO_ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-SRC="$REPO_ROOT/models/v2-small"
-DST="$REPO_ROOT/release/hf/scotoma-clinical-deid-v2"
+SRC="$REPO_ROOT/models/scotoma-small"
+DST="$REPO_ROOT/release/hf/scotoma-small"
 
 FILES="config.json tokenizer.json model_quantized.onnx"
 FORCE=0

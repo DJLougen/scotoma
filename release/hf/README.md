@@ -1,13 +1,13 @@
-# Hugging Face packaging for scotoma-clinical-deid-v2
+# Hugging Face packaging for scotoma-small
 
-`scotoma-clinical-deid-v2/` is the HF repo directory: `README.md` is the model
+`scotoma-small/` is the HF repo directory: `README.md` is the model
 card (tracked in git here), and `stage.sh` copies the binary artefacts into it
-from `models/v2-small`. The copied binaries are git-ignored — they live on the
+from `models/scotoma-small`. The copied binaries are git-ignored — they live on the
 HF hub, not in this repo.
 
 ## Files the HF repo needs
 
-From `models/v2-small` (sha256 recorded for provenance):
+From `models/scotoma-small` (sha256 recorded for provenance):
 
 | file | required | notes |
 |---|---|---|
@@ -17,7 +17,7 @@ From `models/v2-small` (sha256 recorded for provenance):
 | `model_fp32.onnx` | optional | 566 MB reference weights, for debugging / re-quantizing |
 
 Also copy `README.md` (the model card). Upload with
-`huggingface-cli upload <repo> scotoma-clinical-deid-v2 .` or the web UI —
+`huggingface-cli upload <repo> scotoma-small .` or the web UI —
 large ONNX files go through Git LFS automatically. **Nothing in this directory
 uploads by itself; staging only.**
 
