@@ -42,7 +42,13 @@ pub fn map_label(raw: &str) -> Mapped {
     if has("ipv4") || has("ipv6") || l == "ip" || has("ip_address") || l == "ipaddress" { return Phi(Ip); }
     if has("mac_address") || has("device") || has("imei") || has("serial") { return Phi(Device); }
     if has("url") || has("website") || has("http_cookie") { return Phi(Url); }
-    if has("ssn") || has("social_security") { return Phi(Ssn); }
+    if has("ssn") || has("social_security") || has("socialnum") { return Phi(Ssn); }
+    // Piiranha's compact vocabulary (TAXNUM, BUILDINGNUM, IDCARDNUM).
+    if has("taxnum") || has("idcardnum") { return Phi(Id); }
+    if has("buildingnum") { return Phi(Address); }
+    // Binary "private vs not" taggers (ai4privacy anonymisers) carry no category;
+    // any span they flag is redacted and booked as a generic ID.
+    if l == "private" || l == "pii" || l == "sensitive" { return Phi(Id); }
     if has("medical_record") || l == "mrn" || has("patient_id") || l == "medicalrecord" { return Phi(Mrn); }
     if has("health_plan") || has("beneficiary") || has("insurance") || l == "healthplan" { return Phi(Plan); }
     if has("license_plate") || has("vehicle") || l == "vin" || has("vrm") { return Phi(Vehicle); }
@@ -106,5 +112,12 @@ mod tests {
         assert_eq!(map_label("B-PLAN"), Mapped::Phi(Category::Plan));
         assert_eq!(map_label("I-ORG"), Mapped::Quasi);
         assert_eq!(map_label("ZIP"), Mapped::Phi(Category::Zip));
+        assert_eq!(map_label("I-SOCIALNUM"), Mapped::Phi(Category::Ssn));
+        assert_eq!(map_label("I-TAXNUM"), Mapped::Phi(Category::Id));
+        assert_eq!(map_label("I-IDCARDNUM"), Mapped::Phi(Category::Id));
+        assert_eq!(map_label("I-BUILDINGNUM"), Mapped::Phi(Category::Address));
+        assert_eq!(map_label("B-PRIVATE"), Mapped::Phi(Category::Id));
+        assert_eq!(map_label("I-GIVENNAME"), Mapped::Phi(Category::Name));
+        assert_eq!(map_label("I-DRIVERLICENSENUM"), Mapped::Phi(Category::License));
     }
 }

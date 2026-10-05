@@ -315,10 +315,14 @@ def main():
               "conservative the operating point is (c>0 = cautious).", ""]
         for name, _, path in sweeps:
             rows = json.load(open(path))
-            table, best, at35, h_key = dprime(rows, len(items), id_chars, a.clean_chars)
+            # Exact denominators from the sweep when present (scotoma sweep --json emits
+            # gold_chars/clean_chars); otherwise the estimates/overrides above.
+            n_id = rows[0].get("gold_chars") or id_chars
+            n_cl = rows[0].get("clean_chars") or a.clean_chars
+            table, best, at35, h_key = dprime(rows, len(items), n_id, n_cl)
             warn = (f"⚠ `{path}` has no `chars` column — H is span recall, "
                     "not the identifier-character rate. ") if h_key == "recall" else ""
-            L += [f"### {name}", "",
+            L += [f"### {name}", "", f"n(H) = {n_id:g} identifier chars, n(F) = {n_cl:g} ordinary chars" + (" (from sweep)" if rows[0].get('clean_chars') else " (estimated; pass --id-chars/--clean-chars)") + ".", "",
                   warn + f"max d' = {best[0]:.2f} at threshold {best[1]}"
                   + (" (boundary rate corrected: a bound, not a measurement)" if best[2] else "")
                   + f"; d' at default 0.35 = {at35[0]:.2f} (nearest threshold {at35[1]}).", "",

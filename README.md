@@ -153,7 +153,7 @@ model, and the real app driven through hotkey → review → toggle → manual r
 Not tested: macOS and Windows builds, tray behaviour and notifications on those platforms, the
 default `ort` static-link path (the Linux check linked ONNX Runtime dynamically), and the Swift
 capture helper (the Rust side of capture was tested on Linux with a stand-in helper).
-`fetch_model.py`, `prep_dataset.py` and `train.py` have now run on Colab, and `fetch_model.py` also on macOS.
+Since then `fetch_model.py` has run on Colab and macOS, `prep_dataset.py` on Colab, and `train.py` in full on Colab plus a `--tiny` smoke run on macOS.
 
 ## Limits
 

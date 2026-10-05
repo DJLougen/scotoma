@@ -83,6 +83,8 @@ pub struct Report {
     /// Share of NON-identifier characters that were redacted anyway. A system
     /// can reach perfect recall by blacking out everything; this is the cost.
     pub over_redaction: f64,
+    /// Non-whitespace characters outside every annotated region: the denominator of over_redaction.
+    pub clean_chars: usize,
     pub ms_per_doc: f64,
     pub chars_per_sec: f64,
 }
@@ -227,6 +229,7 @@ pub fn evaluate(scrubber: &Scrubber, docs: &[GoldDoc], max_misses: usize) -> Res
     for s in by.values() { overall.add(s); }
     Ok(Report {
         docs: docs.len(), docs_with_leak, overall, by_category: by, by_tag, by_domain, by_mode, responses, misses,
+        clean_chars,
         over_redaction: if clean_chars == 0 { 0.0 } else { clean_redacted as f64 / clean_chars as f64 },
         ms_per_doc: if docs.is_empty() { 0.0 } else { el * 1000.0 / docs.len() as f64 },
         chars_per_sec: if el > 0.0 { chars as f64 / el } else { 0.0 },

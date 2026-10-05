@@ -157,6 +157,8 @@ fn run() -> Result<(), String> {
                         "precision": frac(r.overall.precision()),
                         "leak_docs": r.docs_with_leak,
                         "over_redaction": r.over_redaction,
+                        "gold_chars": r.overall.gold_chars,
+                        "clean_chars": r.clean_chars,
                     }));
                 } else {
                     println!("{:>9.2} {:>8.1} {:>8.1} {:>8.1} {:>10} {:>8.1}", th,

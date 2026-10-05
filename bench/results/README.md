@@ -82,4 +82,87 @@ only scored in int8.
 
 - `scotoma eval` decodes by summing the probability of all identifier classes against a 0.35 threshold. A barely trained smoke model (one epoch, 300 docs) still got 98.4% recall with 5.9% over-redaction on template dev for that reason. Decoder threshold and calibration matter, and the Phase 3 threshold sweep is the right tool.
 - The trained model is in `models/scotoma-v0/` (int8 + fp32 ONNX, `tokenizer.json`, `config.json`), with the PyTorch checkpoint in `models/scotoma-v0/hf/`. Both are git-ignored. sha256 of `model_quantized.onnx`: `7e08df2b695ef78c0b33ae6543187d4c498ed82cc19e2926c038c6507a15cf69`.
-- `bench/results/` and `bench/data/` are listed in `.gitignore`, and this folder is not a git repository. The plan says to commit these results; that has not been done.
+- Results committed in git (33765a7); `bench/data/` stays git-ignored and is regenerable from the seeds above.
+
+# Phase 1 (2026-10-04/05): competitor field, clinical planted-identifier test set
+
+## How the clinical set is built (deterministic labels, no hand tagging)
+
+1. `bench/plant_generate.py spec --n 2000 --seed 11` picks every identifier value in advance (byte-identical on rerun).
+   Names, streets, cities, organisations and mail hosts come from **universe C**, a test-only pool disjoint from the
+   template generator's train (A) and test (B) pools (asserted at import).
+2. An LLM writes each note around typed placeholders (`[[NAME_1]]`, `[[MRN_1]]` …), never seeing a real value.
+   Generator: `RedHatAI/diffusiongemma-26B-A4B-it-FP8-dynamic` (Apache-2.0) on vLLM 0.30.0, Colab A100 40 GB,
+   server-default diffusion sampler (the server rejects temperature/seed for diffusion models, so the text is not
+   bit-reproducible; the generated raw file `bench/data/clin_raw.jsonl` is the frozen artefact).
+3. `bench/verify_planted.py` substitutes the values, so every label offset is known by construction, then
+   string-checks each one and rejects any note with a missing/unknown placeholder, too few repeats, or anything that
+   looks like an identifier the LLM invented (unplanted digits, dates, emails, URLs, pool names, institution names,
+   rules-engine hits). Re-running the verifier locally on the downloaded raw file gives a byte-identical output.
+4. Result: 1718 of 2000 accepted (282 rejected, almost all for under-used placeholders; 9 for rules-engine hits),
+   split by hash of id into **dev 844** and **sealed 874**. Only dev has been scored. The sealed half has been scored
+   **0 times**.
+
+**Known bias, read before quoting:** the identifier *formats* (MRN, account, VIN, plan numbers…) come from the same
+format code as our template training data (`bench/generate.py`), even though the values and names are new. That
+favours our model on structured categories. Names are the least biased category. A format-novel variant and a
+human-checked natural set are still needed for public claims.
+
+## Clinical dev, 844 docs (all systems, same scorer, default threshold 0.35)
+
+ms/doc is 0.0 for systems whose predictions were computed beforehand on GPU (privacy-filter, Presidio, GLiNER);
+their speed is not measured here.
+
+| system | recall | fully redacted | leak docs | over-redaction | precision | ms/doc | source |
+|---|---|---|---|---|---|---|---|
+| rules+ours-fp32 | 99.7 | 97.0 | 19/844 (2.3%) | 0.2% | 99.7 | 41.8 | `clin_dev_hf` |
+| ours-fp32 | 99.7 | 96.8 | 21/844 (2.5%) | 0.0% | 99.7 | 41.0 | `clin_dev_hf` |
+| rules+openmed-large | 99.7 | 95.9 | 21/844 (2.5%) | 0.3% | 98.8 | 272.6 | `clin_dev_hf` |
+| openmed-large | 98.5 | 94.2 | 85/844 (10.1%) | 0.1% | 98.8 | 265.8 | `clin_dev_hf` |
+| rules+stanford | 98.4 | 93.8 | 93/844 (11.0%) | 0.4% | 99.0 | 30.5 | `clin_dev_hf` |
+| rules+gliner-edge | 98.5 | 96.1 | 94/844 (11.1%) | 1.9% | 90.8 | 0.2 | `clin_dev_gl_edge` |
+| rules+ours | 97.8 | 94.6 | 130/844 (15.4%) | 0.2% | 99.9 | 22.4 | `clin_dev_hf` |
+| rules+openmed | 97.2 | 94.0 | 167/844 (19.8%) | 0.2% | 99.9 | 22.2 | `clin_dev_hf` |
+| ours | 97.0 | 93.4 | 172/844 (20.4%) | 0.0% | 99.9 | 20.8 | `clin_dev_hf` |
+| gliner-edge | 96.3 | 90.5 | 207/844 (24.5%) | 1.7% | 91.1 | 0.0 | `clin_dev_gl_edge` |
+| rules+privacy-filter | 95.1 | 93.5 | 244/844 (28.9%) | 0.5% | 99.6 | 0.2 | `clin_dev_ext` |
+| stanford | 95.1 | 83.3 | 280/844 (33.2%) | 0.3% | 99.0 | 30.6 | `clin_dev_hf` |
+| openmed | 92.7 | 86.6 | 333/844 (39.5%) | 0.0% | 99.9 | 21.7 | `clin_dev_hf` |
+| rules+presidio | 90.9 | 81.2 | 420/844 (49.8%) | 1.8% | 92.6 | 0.2 | `clin_dev_ext` |
+| privacy-filter | 87.1 | 85.5 | 494/844 (58.5%) | 0.3% | 99.5 | 0.0 | `clin_dev_ext` |
+| rules+ai4privacy-en | 83.5 | 78.0 | 563/844 (66.7%) | 0.3% | 99.2 | 109.2 | `clin_dev_hf` |
+| rules+ai4privacy-cat | 81.5 | 70.8 | 580/844 (68.7%) | 0.2% | 99.6 | 104.5 | `clin_dev_hf` |
+| presidio | 82.3 | 67.9 | 614/844 (72.7%) | 1.7% | 92.1 | 0.0 | `clin_dev_ext` |
+| ai4privacy-en | 77.5 | 66.7 | 640/844 (75.8%) | 0.1% | 99.1 | 105.6 | `clin_dev_hf` |
+| rules+piiranha | 79.7 | 74.9 | 655/844 (77.6%) | 0.3% | 99.6 | 100.9 | `clin_dev_hf` |
+| ai4privacy-cat | 69.9 | 52.6 | 763/844 (90.4%) | 0.1% | 99.5 | 111.8 | `clin_dev_hf` |
+| piiranha | 57.3 | 49.0 | 820/844 (97.2%) | 0.1% | 99.4 | 101.7 | `clin_dev_hf` |
+| rules | 47.3 | 46.9 | 821/844 (97.3%) | 0.2% | 100.0 | 0.1 | `clin_dev_hf` |
+
+Recall by category, model alone (from `clin_dev_hf/results.md`): our int8 model loses mainly on AGE (81.0 vs 98.2
+fp32), VEHICLE (80.5 vs 96.6) and NAME (97.4 vs 99.9). Stanford never detects ages over 89 (0.6%).
+
+## Shipping format: int8 conversion was the bottleneck
+
+The default ONNX Runtime dynamic int8 export loses most of our model's advantage (20.4% vs 2.5% leaking docs on
+clinical dev). Per-channel int8 (`quantize_dynamic(per_channel=True)`, same 172 MB) plus a lower threshold recovers
+most of it. Threshold chosen on the first 200 dev docs, then checked on the other 644:
+
+| model / threshold (644 held-out dev docs) | recall | leak docs | over-redaction | ms/doc |
+|---|---|---|---|---|
+| int8 per-channel @ 0.02 | 99.7 | 16/644 (2.5%) | 0.1% | 21.9 |
+| int8 default @ 0.02 | 99.5 | 23/644 (3.6%) | 0.1% | 22.4 |
+| fp32 @ 0.02 | 99.9 | 3/644 (0.5%) | 0.3% | 41.8 |
+| fp32 @ 0.35 | 99.6 | 18/644 (2.8%) | 0.0% | 43.8 |
+| int8 per-channel @ 0.35 | 97.5 | 116/644 (18.0%) | 0.0% | 21.7 |
+
+0.02 is a clinical operating point only: on the template test it over-redacts 3.0% (above the 1% cap), on Nemotron
+0.7%. Per-domain thresholds are needed. OpenMed-large's int8 export also failed (58% recall on templates); only our
+tested dynamic-int8 conversion is shown to fail, other schemes (QDQ, fp16, QAT) were not tried for it.
+
+## New competitors on the template and Nemotron tests
+
+See `p1d_test_tpl`, `p1d3_test_tpl`, `p1d2_*`, `p1d3_nemo_test`, `p1d_pf_*`. Licences checked on Hugging Face:
+piiranha is **CC BY-NC-ND 4.0** (benchmark only, not commercial); ai4privacy's real models are ModernBERT
+(`llama-ai4privacy-*`), not "deberta-v3-base-pii"; ai4privacy-en's low template recall (54%) was cross-checked with its
+own HF pipeline (51.5% on 40 docs) so it is not a Scotoma conversion artefact.

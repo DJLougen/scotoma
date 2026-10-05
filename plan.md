@@ -44,9 +44,8 @@ Nothing here needs new code, only running what exists on a GPU.
       test_results' 0.959 (~45k) come from OpenMed's unpublished split, so they are not comparable. ONNX matches PyTorch to 2e-5, so the
       export and mapping are taken as correct. See `bench/results/README.md`.)*
 - [x] Score rules, OpenMed, and rules + OpenMed on the template test (universe B).
-- [~] Record all three in `bench/results/` and commit them. This is the baseline everything else is
-      measured against. *(Recorded; not committed: the folder is not a git repo and `bench/results/`
-      is git-ignored.)*
+- [x] Record all three in `bench/results/` and commit them. This is the baseline everything else is
+      measured against. *(Committed in 33765a7.)*
 
 **Exit:** a results table with a real model in it, and confidence the scorer is right.
 

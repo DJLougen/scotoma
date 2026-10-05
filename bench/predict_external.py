@@ -49,11 +49,59 @@ transition biases from viterbi_calibration.json (operating point "default")
     private_email    EMAIL     private_person   NAME      private_phone PHONE
     private_url      URL       secret           ID
 
+gliner-* — GLiNER zero-shot PII models via the `gliner` package:
+    gliner-nvidia                nvidia/gliner-PII            (NVIDIA Open Model License, max_types 25)
+    gliner-knowledgator-large    knowledgator/gliner-pii-large-v1.0   (Apache-2.0, max_types 30)
+    gliner-knowledgator-base     knowledgator/gliner-pii-base-v1.0    (max_types 100)
+    gliner-knowledgator-edge     knowledgator/gliner-pii-edge-v1.0    (max_types 100)
+One fixed prompt list (GLINER_LABELS) covers every Scotoma category, using the
+cards'/dataset's own label names where they exist (nvidia's native vocabulary
+is nvidia/Nemotron-PII snake_case: ssn, health_plan_beneficiary_number,
+certificate_license_number, vehicle_identifier, ...; knowledgator's card
+documents the spaced forms). Primaries first: the first 25 prompts cover all
+21 Scotoma categories (incl. ORG); synonym prompts follow. Predict calls are
+split into groups of <= the loaded model's max_types (read from
+model.config.max_types at runtime — fatal if absent) and merged, overlapping
+spans keeping the higher score. The map, by Scotoma destination:
+    NAME     <- person name, first name, last name
+    ADDRESS  <- street address, coordinate
+    LOCATION <- city, county          ZIP      <- zip code, postcode
+    DATE     <- date, date of birth   AGE      <- age
+    PHONE    <- phone number          FAX      <- fax number
+    EMAIL    <- email, email address
+    SSN      <- ssn, social security number
+    MRN      <- medical record number
+    PLAN     <- health plan beneficiary number
+    ACCOUNT  <- account number, credit card, bank routing number,
+                credit card number, bank account
+    LICENSE  <- certificate license number, license number, driver license
+    VEHICLE  <- license plate, vehicle identifier
+    DEVICE   <- device identifier, mac address
+    URL      <- url                   IP       <- ip address, ipv4
+    BIOMETRIC<- biometric identifier
+    ID       <- id number, passport number, unique id
+    ORG      <- organization, company name
+Prediction threshold: 0.3 for all four — nvidia's card: "evaluated using
+threshold=0.3"; knowledgator's cards use 0.3 throughout and call it the
+recommended production starting point (--threshold overrides).
+config.max_len counts GLiNER splitter tokens (words AND punctuation;
+data_processing/processor.py truncates tokens[:max_len]), so docs are split
+into windows of <= max_len splitter tokens AND <= (encoder limit - prompt
+subwords) measured with model.data_processor.transformer_tokenizer
+(chunk_text shrinks a window until both hold). Offsets map back to the
+original text; trimmed duplicate/overlapping spans merge by score
+(merge_spans). Unknown predicted label -> fatal (fail closed).
+GPU: GLiNER picks CUDA itself when available; --batch controls docs/batch via
+model.inference(texts, labels, batch_size=...).
+Unknown predicted label -> fatal (fail closed).
+
 Colab installs:
     pip install presidio-analyzer && python -m spacy download en_core_web_lg
     pip install -U "transformers>=5.6" torch accelerate   # then --model openai/privacy-filter (~3 GB)
+    pip install gliner                                   # then any gliner-* system
+
 """
-import argparse, json, sys
+import argparse, json, os, sys
 from collections import Counter
 
 # Presidio entity type -> Scotoma label. Exhaustive for the default
@@ -88,6 +136,45 @@ PRIVACY_FILTER_MAP = {
     "private_phone": "PHONE", "private_url": "URL", "secret": "ID",
 }
 
+# GLiNER prompt labels -> Scotoma label. One fixed natural-language list for
+# all GLiNER systems, preferring each card's own names (nvidia/gliner-PII was
+# trained on nvidia/Nemotron-PII's snake_case vocabulary; knowledgator's card
+# documents the space-separated forms). Order matters: every Scotoma category
+# gets a primary prompt in the first 25 entries so a single label group (e.g.
+# nvidia's max_types=25) still covers all categories; synonym prompts follow.
+GLINER_MODELS = {
+    "gliner-nvidia": ("nvidia/gliner-PII", 0.3),           # card: "evaluated using threshold=0.3"
+    "gliner-knowledgator-large": ("knowledgator/gliner-pii-large-v1.0", 0.3),
+    "gliner-knowledgator-base": ("knowledgator/gliner-pii-base-v1.0", 0.3),
+    "gliner-knowledgator-edge": ("knowledgator/gliner-pii-edge-v1.0", 0.3),
+    # knowledgator cards use threshold=0.3 throughout and call it the
+    # "recommended starting point for production"
+}
+GLINER_LABELS = {
+    # --- one primary prompt per Scotoma category (fits nvidia max_types 25) ---
+    "person name": "NAME", "street address": "ADDRESS",
+    "city": "LOCATION", "zip code": "ZIP",
+    "date": "DATE", "date of birth": "DATE", "age": "AGE",
+    "phone number": "PHONE", "fax number": "FAX", "email": "EMAIL",
+    "ssn": "SSN", "medical record number": "MRN",
+    "health plan beneficiary number": "PLAN",
+    "account number": "ACCOUNT", "credit card": "ACCOUNT",
+    "bank routing number": "ACCOUNT",
+    "certificate license number": "LICENSE",
+    "license plate": "VEHICLE", "vehicle identifier": "VEHICLE",
+    "device identifier": "DEVICE", "url": "URL", "ip address": "IP",
+    "biometric identifier": "BIOMETRIC",
+    "id number": "ID", "organization": "ORG",
+    # --- synonyms / native-vocab alternates, sent in later label groups ---
+    "first name": "NAME", "last name": "NAME",
+    "coordinate": "ADDRESS", "county": "LOCATION", "postcode": "ZIP",
+    "email address": "EMAIL", "social security number": "SSN",
+    "credit card number": "ACCOUNT", "bank account": "ACCOUNT",
+    "license number": "LICENSE", "driver license": "LICENSE",
+    "mac address": "DEVICE", "ipv4": "IP",
+    "passport number": "ID", "unique id": "ID", "company name": "ORG",
+}
+
 VITERBI_BIAS_KEYS = (
     "transition_bias_background_stay", "transition_bias_background_to_start",
     "transition_bias_inside_to_continue", "transition_bias_inside_to_end",
@@ -102,6 +189,124 @@ def trim(text, start, end):
     while start < end and text[start].isspace(): start += 1
     return start, end
 
+def label_groups(prompts, max_types):
+    """Split prompts into predict-call groups of at most max_types.
+
+    GLiNER configs cap labels per call (nvidia/gliner-PII: 25, knowledgator
+    large: 30, base/edge: 100). GLINER_LABELS is ordered so the first group
+    alone still covers every Scotoma category; later groups add synonyms.
+    """
+    return [prompts[i:i + max_types] for i in range(0, len(prompts), max_types)]
+
+
+def predict_grouped(model, texts, groups, threshold, batch_size, max_types):
+    """Run GLiNER inference once per label group; enforce the max_types cap at
+    the call boundary. Returns per-(text, group) entity lists in the same
+    nested order: results[g][i] -> entities for texts[i] under groups[g]."""
+    out = []
+    for labels in groups:
+        if len(labels) > max_types:
+            raise ValueError(f"label group of {len(labels)} exceeds model max_types={max_types}")
+        if hasattr(model, "inference"):
+            out.append(model.inference(texts, labels, threshold=threshold, batch_size=batch_size))
+        else:  # very old gliner: serial fallback
+            out.append([model.predict_entities(t, labels, threshold=threshold) for t in texts])
+    return out
+
+
+def merge_spans(raw):
+    """Resolve duplicate/overlapping spans from overlapping windows and label
+    groups. Exact duplicates collapse; overlapping distinct spans keep the
+    higher score. raw = [(start, end, scotoma_label, score)]."""
+    out = []
+    for s in sorted(raw, key=lambda r: -r[3]):
+        if any(not (s[1] <= t["start"] or s[0] >= t["end"]) for t in out):
+            continue
+        out.append({"start": s[0], "end": s[1], "label": s[2]})
+    return sorted(out, key=lambda s: s["start"])
+
+
+def gliner_splitter_tokens(text):
+    """Default GLiNER whitespace splitter: words AND punctuation are separate
+    tokens — this is what config.max_len counts (data_processing/processor.py
+    truncates `tokens` at max_len). Mirrors WordsSplitter('whitespace')."""
+    import re
+    return [m.span() for m in re.finditer(r"\w+(?:[-_]\w+)*|\S", text)]
+
+
+def chunk_text(text, tok_spans, tok_strs, max_len, measure=None,
+               subword_limit=None, overlap=None):
+    """Split text into (char_offset, chunk_text) windows, safe in both senses:
+    <= max_len GLiNER splitter tokens per window AND, when `measure` is given,
+    measure(tok_strs[i:j]) <= subword_limit (the model's real prepared+encoded
+    input length, incl. the label prompt — shrink the window until it fits,
+    since subword blow-up is not proportional to token count). Windows are
+    whole splitter tokens, stepped max_len-overlap apart so an entity cut at
+    one window's edge sits inside the next. Each chunk is an exact substring
+    of text starting at its char offset."""
+    overlap = max(1, max_len // 7) if overlap is None else overlap
+    n = len(tok_spans)
+    def fits(j_from, j_to):
+        return measure is None or measure(tok_strs[j_from:j_to]) <= subword_limit
+    if n <= max_len and fits(0, n):
+        return [(0, text)]
+    chunks, i = [], 0
+    while i < n:
+        if not fits(i, i + 1):
+            raise ValueError(f"single splitter token at offset {tok_spans[i][0]} "
+                             "exceeds the encoder subword budget — cannot window")
+        hi = min(i + max_len, n)
+        if not fits(i, hi):
+            lo = i + 1  # binary search the largest window end that fits
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if fits(i, mid):
+                    lo = mid
+                else:
+                    hi = mid - 1
+        j = hi
+        chunks.append((tok_spans[i][0], text[tok_spans[i][0]:tok_spans[j - 1][1]]))
+        if j == n:
+            break
+        # next window starts `overlap` tokens before this window's actual end
+        # (never before i+1: always makes progress, keeps the boundary overlap)
+        i = max(i + 1, j - overlap)
+    return chunks
+
+
+def gliner_limits(model):
+    """(max_types, max_len) from the loaded model's config — the only source of
+    truth. max_types caps labels per predict call; max_len caps GLiNER
+    splitter tokens per input. Fatal if missing or invalid."""
+    cfg = getattr(model, "config", None)
+    mt = getattr(cfg, "max_types", None)
+    ml = getattr(cfg, "max_len", None)
+    try:
+        max_types, max_len = int(mt), int(ml)
+    except (TypeError, ValueError):
+        sys.exit(f"model config lacks usable max_types/max_len (got {mt!r}/{ml!r})")
+    if max_types <= 0 or max_len <= 0:
+        sys.exit(f"model config has non-positive limits: max_types={mt!r} max_len={ml!r}")
+    return max_types, max_len
+
+
+def encoder_limit(model, fallback):
+    """The inner HF encoder's positional cap (what truncation=True cuts at when
+    the tokenizer's own model_max_length is a huge sentinel). Probes the usual
+    GLiNER model paths; falls back to `fallback` (max_len) — always safe since
+    the encoded input is never shorter than its splitter-token count."""
+    for path in (("model", "token_rep_layer", "bert_layer", "model", "config"),
+                 ("model", "token_rep_layer", "bert_layer", "config"),
+                 ("model", "encoder", "model", "config")):
+        obj = model
+        for attr in path:
+            obj = getattr(obj, attr, None)
+            if obj is None:
+                break
+        lim = getattr(obj, "max_position_embeddings", None) if obj is not None else None
+        if isinstance(lim, int) and 0 < lim < 10**7:
+            return lim
+    return fallback
 
 def build_tables(id2label):
     """CRF start/end/transition masks for a BIOES label space.
@@ -222,6 +427,70 @@ def bioes_spans(path, id2label, offsets):
         if cs is not None and ce is not None and ce > cs:
             out.append({"start": cs, "end": ce, "label": label})
     return out
+
+
+def run_gliner(docs, a):
+    try:
+        from gliner import GLiNER
+    except ImportError:
+        sys.exit("pip install gliner")
+    hf_id, card_threshold = GLINER_MODELS[a.system]
+    threshold = card_threshold if a.threshold is None else a.threshold
+    model = GLiNER.from_pretrained(hf_id)
+    import torch
+    if torch.cuda.is_available():
+        model = model.to("cuda")   # from_pretrained loads on CPU; without this a GPU box runs at CPU speed
+    model.eval()
+    print(f"{a.system}: device {next(model.parameters()).device}", file=sys.stderr)
+    max_types, max_len = gliner_limits(model)
+    prompts = list(GLINER_LABELS)
+    groups = label_groups(prompts, max_types)
+    # Splitter tokens are what max_len counts; measure() reproduces the model's
+    # real input — dp.prepare_inputs wraps each label group in its marker
+    # tokens, then the HF tokenizer encodes with is_split_into_words — so the
+    # subword check is the exact tensor length, not an estimate.
+    dp = getattr(model, "data_processor", None)
+    enc_tok = getattr(dp, "transformer_tokenizer", None)
+    splitter = getattr(dp, "words_splitter", None)
+    measure = None
+    if dp is not None and enc_tok is not None:
+        def encoded(words, labels):
+            inp, _ = dp.prepare_inputs([words], labels)
+            return len(enc_tok(inp[0], is_split_into_words=True,
+                               add_special_tokens=False)["input_ids"])
+        def measure(words):
+            return max(encoded(list(words), g) for g in groups)
+    subword_limit = encoder_limit(model, max_len) - 8
+    for b in range(0, len(docs), a.batch):
+        chunk = docs[b:b + a.batch]
+        windows = []
+        for di, d in enumerate(chunk):
+            if splitter is not None:
+                toks = [(s, e) for _, s, e in splitter(d["text"])]
+                strs = [d["text"][s:e] for s, e in toks]
+            else:
+                toks = gliner_splitter_tokens(d["text"])
+                strs = [d["text"][s:e] for s, e in toks]
+            windows += [(di, off, ct) for off, ct in
+                        chunk_text(d["text"], toks, strs, max_len,
+                                   measure, subword_limit)]
+        texts = [ct for _, _, ct in windows]
+        for g, results in enumerate(predict_grouped(model, texts, groups, threshold, a.batch, max_types)):
+            for (di, off, _), ents in zip(windows, results):
+                raw = chunk[di].setdefault("_raw", [])
+                text = chunk[di]["text"]
+                for ent in ents:
+                    label = GLINER_LABELS.get(ent["label"])
+                    if label is None:
+                        sys.exit(f"{hf_id} returned unmapped label {ent['label']!r} — extend GLINER_LABELS")
+                    s, e = trim(text, off + ent["start"], off + ent["end"])
+                    if e > s:
+                        raw.append((s, e, label, float(ent.get("score", 1.0))))
+        for d in chunk:
+            d["_pred"] = merge_spans(d.pop("_raw", []))
+        print(f"{a.system}: {min(b + a.batch, len(docs))}/{len(docs)} "
+              f"(thr {threshold}, {len(groups)} label group(s) <= {max_types}, "
+              f"windows <= {max_len} tokens)", file=sys.stderr, flush=True)
 
 
 def run_presidio(docs, a):
@@ -361,16 +630,86 @@ def selftest():
     p = viterbi(logits([{"B-x": 9.0}, {"I-x": 9.0}, {"E-x": 9.0}]), id2label)
     got = bioes_spans(p, id2label, offs)
     assert got == [{"start": 0, "end": 10, "label": "x"}], got
-    print("selftest ok")
+    print("selftest: viterbi ok")
+    selftest_chunking()
+
+
+def selftest_chunking():
+    """GLiNER plumbing: windows respect the splitter-token cap AND a measured
+    subword budget, offsets map back to exact original substrings, spans found
+    in the overlap merge to one, and no predict call exceeds max_types."""
+    def split(t):
+        sp = gliner_splitter_tokens(t)
+        return sp, [t[s:e] for s, e in sp]
+    text = "BEGIN123 " + ("filler " * 90) + "MID456 " + ("filler " * 90) + "TAIL789"
+    sp, st = split(text)
+    chunks = chunk_text(text, sp, st, max_len=30, overlap=8)
+    assert len(chunks) >= 3, chunks
+    for off, ct in chunks:
+        assert text[off:off + len(ct)] == ct  # chunk is an exact substring
+    # fake predictor: report the three markers wherever they appear in a chunk
+    found = []
+    for off, ct in chunks:
+        for marker in ("BEGIN123", "MID456", "TAIL789"):
+            i = ct.find(marker)
+            while i >= 0:
+                found.append((off + i, off + i + len(marker), "ID", 0.9))
+                i = ct.find(marker, i + 1)
+    spans = merge_spans(found)
+    got = {text[s["start"]:s["end"]] for s in spans}
+    assert got == {"BEGIN123", "MID456", "TAIL789"}, spans
+    # MID456 sits inside the overlap of two windows: seen twice, merged once
+    assert sum(s["end"] - s["start"] == 6 and text[s["start"]] == "M" for s in spans) == 1
+    # overlapping distinct spans keep the higher score
+    m = merge_spans([(10, 20, "NAME", 0.9), (12, 18, "ID", 0.5), (30, 35, "DATE", 0.4)])
+    assert m == [{"start": 10, "end": 20, "label": "NAME"},
+                 {"start": 30, "end": 35, "label": "DATE"}], m
+    # every window overlaps the previous one: no word gap between chunks
+    ends = [off + len(ct) for off, ct in chunks]
+    for k in range(1, len(chunks)):
+        assert chunks[k][0] < ends[k - 1]
+    # short text: single whole-text window, no chunking
+    assert chunk_text("short text", *split("short text"), max_len=30) == [(0, "short text")]
+    # subword budget: a "wide" fake encoder (4 subwords per splitter token, plus
+    # 50 of prompt overhead) forces smaller windows than the token cap alone
+    wide = chunk_text(text, sp, st, max_len=60, overlap=8,
+                      measure=lambda ws: 4 * len(ws) + 50, subword_limit=200)
+    assert all(4 * len(gliner_splitter_tokens(ct)) + 50 <= 200 for _, ct in wide), [len(c[1]) for c in wide]
+    assert all(text[o:o + len(c)] == c for o, c in wide)
+    joined = "".join(c for _, c in wide)
+    for marker in ("BEGIN123", "MID456", "TAIL789"):
+        assert marker in joined, marker
+    # shrunk windows still overlap: boundary protection survives the shrink
+    for k in range(1, len(wide)):
+        prev_end = wide[k - 1][0] + len(wide[k - 1][1])
+        assert wide[k][0] < prev_end, (wide[k - 1], wide[k])
+    # max_types is enforced at the call boundary, not just in label_groups
+    class Fake:
+        def __init__(self): self.seen = []
+        def inference(self, texts, labels, threshold=None, batch_size=None):
+            self.seen.append(len(labels)); return [[] for _ in texts]
+    fake = Fake()
+    predict_grouped(fake, ["x"], label_groups(list(GLINER_LABELS), 25), 0.3, 8, 25)
+    assert all(n <= 25 for n in fake.seen) and len(fake.seen) == 2
+    try:
+        predict_grouped(fake, ["x"], [["a"] * 26], 0.3, 8, 25)
+        raise SystemExit("cap not enforced")
+    except ValueError:
+        pass
+    # first label group covers every Scotoma category (primaries listed first)
+    groups = label_groups(list(GLINER_LABELS), 25)
+    assert {GLINER_LABELS[p] for p in groups[0]} == set(GLINER_LABELS.values())
+    print("selftest: chunking ok")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("system", nargs="?", choices=["presidio", "openai-privacy-filter"])
+    ap.add_argument("system", nargs="?", choices=["presidio", "openai-privacy-filter"] + list(GLINER_MODELS))
     ap.add_argument("data", nargs="?")
     ap.add_argument("--out", required=False)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--batch", type=int, default=8)
+    ap.add_argument("--threshold", type=float, default=None, help="GLiNER score threshold; default is each card's eval threshold")
     ap.add_argument("--spacy-model", default="en_core_web_lg")
     ap.add_argument("--model", default="openai/privacy-filter")
     ap.add_argument("--calibration", default=None, help="viterbi_calibration.json path")
@@ -383,9 +722,17 @@ def main():
         selftest(); return
     if not a.system or not a.data or not a.out:
         ap.error("SYSTEM DATA --out are required")
+    if a.limit is not None and a.limit < 0:
+        ap.error("--limit must be >= 0")
+    if a.batch <= 0:
+        ap.error("--batch must be > 0")
+    if a.threshold is not None and not 0.0 <= a.threshold <= 1.0:
+        ap.error("--threshold must be in [0, 1]")
     docs = [json.loads(l) for l in open(a.data, encoding="utf-8") if l.strip()]
-    if a.limit: docs = docs[:a.limit]
-    {"presidio": run_presidio, "openai-privacy-filter": run_privacy_filter}[a.system](docs, a)
+    if a.limit is not None: docs = docs[:a.limit]
+    runner = {"presidio": run_presidio, "openai-privacy-filter": run_privacy_filter}.get(a.system, run_gliner)
+    runner(docs, a)
+    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         for d in docs:
             f.write(json.dumps({"id": d.get("id"), "text": d["text"], "spans": d.get("_pred", [])}, ensure_ascii=False) + "\n")

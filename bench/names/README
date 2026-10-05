@@ -1,0 +1,7 @@
+Source: /Users/djl/Projects/phi-redact/phi_redact/data/{first_names,surnames}.txt (copied verbatim).
+Lowercase ASCII names, one per line: 531 first names, 982 surnames.
+Used to build universe-C name pools for bench/plant_generate.py; A/B pool
+names from bench/generate.py are subtracted case-insensitively.
+sha256 (of the copies in this directory):
+0beb34820a611a4e50ec6e03d8af51ea77f47b4ebf6f2d29ce8191e3ff6e66b0  bench/names/first_names.txt
+bfeb0928f70cebcbcc427436da28c83f6d79aa0f8a54a923e68b55f5ee94cd9f  bench/names/surnames.txt
