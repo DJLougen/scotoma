@@ -1,13 +1,16 @@
-# Scotoma
+# Scrub N Paste — powered by the Scotoma model
 
 An on-device scrubber for patient identifiers. Copy part of a clinical note, press a hotkey, check
 what was caught, paste. Then paste the reply back and press another hotkey to put the real names
-back in.
+back in. Screenshots, PDFs and dictation go through the same pipeline.
 
-It is a Tauri desktop app (macOS tested; Linux builds) around a Rust core: a deterministic rules
-engine for structured identifiers plus a DeBERTa-v3-small token classifier (141 M params, per-channel
-int8 ONNX, 172 MB, ~20 ms per note on a laptop CPU). Nothing leaves the machine — the only socket
-the app ever opens is an optional, opt-in loopback connection to your own speech server.
+**Scrub N Paste** is the app: Tauri, macOS tested, Linux builds. **Scotoma** is the detection
+engine inside it, a Rust core with a deterministic rules engine for structured identifiers plus
+**Scotoma-small**. Scotoma-small is a DeBERTa-v3-small token classifier with 141 M params,
+per-channel int8 ONNX, 172 MB, about 20 ms per note on a laptop CPU. The `scotoma` command-line tool
+and the model on Hugging Face ([DJLougen/scotoma-small](https://huggingface.co/DJLougen/scotoma-small))
+keep the engine's name. Nothing leaves the machine. The only socket the app ever opens is an
+optional, opt-in loopback connection to your own speech server.
 
 Apache-2.0. See [NOTICE](NOTICE) for the data and model credits.
 
@@ -136,7 +139,7 @@ the file — for example `whisper-cli -m ~/models/ggml-large-v3-turbo.bin -nt -n
 but that reloads the model on every utterance. The recording is the one thing that touches disk
 (a temp file, deleted straight after transcription). The speech server connection is the only
 socket the app ever opens. If you dictate with Superwhisper, use a local voice model with no
-cloud post-processing: otherwise the audio has left the machine before Scotoma sees a word.
+cloud post-processing: otherwise the audio has left the machine before Scrub N Paste sees a word.
 
 **Latency.** The footer of the left pane shows where the time went for each input, for example
 `screen · read 240 ms · detect 35 ms`. The detection model is warmed at startup.
@@ -144,7 +147,7 @@ cloud post-processing: otherwise the audio has left the machine before Scotoma s
 **Permissions** (System Settings → Privacy & Security): Screen Recording for capture,
 Accessibility for reading the selection, Microphone for dictation. The app does not listen to
 the keyboard; it only registers its own hotkeys, so no Input Monitoring permission is needed.
-When launched with `npm run dev` the prompts name your terminal app rather than Scotoma.
+When launched with `npm run dev` the prompts name your terminal app rather than Scrub N Paste.
 
 The capture helper is `app/src-tauri/helper/main.swift`, compiled by the build (needs the Xcode
 command line tools); not available on Windows or Linux yet.
@@ -194,7 +197,7 @@ bench/results/ every scorecard, pre-registration, and run log
 
 - **It can miss things.** Rules cover formats, the model covers language, and neither reads
   minds: a rare-disease mention or "the mayor's wife" identifies someone without containing an
-  identifier. Scotoma is a helper, not a guarantee — read the right-hand pane before pasting.
+  identifier. Scrub N Paste is a helper, not a guarantee — read the right-hand pane before pasting.
 - **All benchmark text is synthetic.** Labels are exact by construction, but the prose is
   LLM-written. A real-clinical-text benchmark (i2b2/n2c2) has not been run yet.
 - Familiar-format test sets share identifier *formats* with our training-family generator code
