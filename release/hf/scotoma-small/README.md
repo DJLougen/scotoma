@@ -19,7 +19,7 @@ thumbnail: https://huggingface.co/DJLougen/scotoma-small/resolve/main/assets/her
 
 **Support on [Ko-fi](https://ko-fi.com/djlougen) or X Money: [@DJLougen](https://x.com/DJLougen)**
 
-`scotoma-small` is the token classifier inside [Scotoma](https://github.com/DJLougen/scotoma), an on-device clinical
+`scotoma-small` is the token classifier inside the Scotoma engine of [Scrub N Paste](https://github.com/DJLougen/scotoma), an on-device clinical
 PHI redaction app for macOS (Tauri + Rust). It is
 `microsoft/deberta-v3-small` (141M parameters, 98M of which are the embedding
 table) fine-tuned to tag 21 HIPAA Safe-Harbor-style identifier categories, then
