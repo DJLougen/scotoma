@@ -220,7 +220,19 @@ fn run() -> Result<(), String> {
 }
 
 
+#[cfg(target_os = "macos")]
+extern "C" { fn pthread_set_qos_class_self_np(qos: u32, relpri: i32) -> i32; }
+
+/// Benchmarks are often started from scripts or agents that macOS treats as
+/// background work and squeezes onto a sliver of one core. Ask for
+/// user-initiated QoS before any worker threads exist (they inherit it).
+fn raise_qos() {
+    #[cfg(target_os = "macos")]
+    unsafe { let _ = pthread_set_qos_class_self_np(0x19 /* QOS_CLASS_USER_INITIATED */, 0); }
+}
+
 fn main() {
+    raise_qos();
     if let Err(e) = run() {
         eprintln!("scotoma: {e}");
         std::process::exit(1);

@@ -32,6 +32,7 @@ def main():
     ap.add_argument("--out", default="bench/results")
     ap.add_argument("--strict", action="store_true", help="count organisations and quasi-identifiers (law, tax, HR policies)")
     ap.add_argument("--threshold", default=None)
+    ap.add_argument("--print-cmds", action="store_true", help="print the eval commands (without --responses) and exit; run them yourself, then rerun with SCOTOMA_PRECOMPUTED=DIR holding NAME.json / NAME.csv")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     cli, reports, resp, names = find_cli(), {}, {}, []
@@ -45,13 +46,23 @@ def main():
         if a.strict: cmd.append("--strict")
         if a.threshold: cmd += ["--threshold", a.threshold]
         print("running", name, "...", flush=True)
-        out = subprocess.run(cmd, capture_output=True, text=True)
-        if out.returncode != 0: sys.exit(f"{name} failed: {out.stderr.strip()}")
-        reports[name] = json.loads(out.stdout); names.append(name)
+        pre = os.environ.get("SCOTOMA_PRECOMPUTED")
+        if pre:
+            # The eval was run beforehand with exactly this command (see --print-cmds);
+            # read its JSON and responses instead of spawning it again.
+            reports[name] = json.load(open(os.path.join(pre, f"{name}.json"))); names.append(name)
+            import shutil; shutil.copy(os.path.join(pre, f"{name}.csv"), os.path.join(a.out, f".{name}.csv"))
+        elif a.print_cmds:
+            print("CMD", name, " ".join(cmd[:cmd.index("--responses")] + cmd[cmd.index("--responses") + 2:])); continue
+        else:
+            out = subprocess.run(cmd, capture_output=True, text=True)
+            if out.returncode != 0: sys.exit(f"{name} failed: {out.stderr.strip()}")
+            reports[name] = json.loads(out.stdout); names.append(name)
         with open(os.path.join(a.out, f".{name}.csv")) as f:
             resp[name] = {r["item"]: r["outcome"] for r in csv.DictReader(f)}
         os.remove(os.path.join(a.out, f".{name}.csv"))
 
+    if a.print_cmds: return
     def pct(st, key="caught"): return "–" if not st or not st["gold"] else f"{100*st[key]/st['gold']:.1f}"
     def prec(st): return "–" if not st["predicted"] else f"{100*st['predicted_correct']/st['predicted']:.1f}"
     L = [f"# {os.path.basename(a.data)}", "", "Recall = identifier touched by a redaction. Leak docs = documents with at least one identifier left untouched.", "",
