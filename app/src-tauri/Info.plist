@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Scotoma records your voice only while you hold the dictation key, to transcribe it on this Mac with the speech model you configured.</string>
+  <string>Scrub N Paste records your voice only while you hold the dictation key, to transcribe it on this Mac with the speech model you configured.</string>
   <key>LSUIElement</key>
   <true/>
 </dict>

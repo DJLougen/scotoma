@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Scotoma",
+  "productName": "Scrub N Paste",
   "version": "0.1.0",
   "identifier": "app.scotoma.desktop",
   "build": {
@@ -11,7 +11,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Scotoma",
+        "title": "Scrub N Paste",
         "width": 1080,
         "height": 700,
         "minWidth": 820,

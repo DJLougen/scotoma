@@ -1,5 +1,5 @@
 #!/bin/bash
-# Scotoma launcher for macOS. Double-click in Finder, or run: bash launch.command
+# Scrub N Paste launcher for macOS. Double-click in Finder, or run: bash launch.command
 # Builds and starts the app. First run takes several minutes.
 set -u
 cd "$(dirname "$0")"
@@ -22,7 +22,7 @@ if [ ! -f "$MODEL/config.json" ]; then
   deactivate 2>/dev/null || true
 fi
 
-echo "== Building and starting Scotoma =="
+echo "== Building and starting Scrub N Paste =="
 cd app && npm install --no-audit --no-fund && npm run dev
 status=$?
 [ $status -ne 0 ] && { echo; echo "Build or launch failed (exit $status). Copy the error above back to Claude."; read -n1 -r -p "Press any key to close."; }

@@ -1,4 +1,4 @@
-// Scotoma desktop shell. Tray icon, two global hotkeys, one review window.
+// Scrub N Paste desktop shell (detection engine: Scotoma). Tray icon, two global hotkeys, one review window.
 // This binary contains no networking code: text goes clipboard → memory → clipboard.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -217,7 +217,7 @@ fn send_review(app: &AppHandle, analysis: Analysis) {
 }
 
 fn notify(app: &AppHandle, body: &str) {
-    let _ = app.notification().builder().title("Scotoma").body(body).show();
+    let _ = app.notification().builder().title("Scrub N Paste").body(body).show();
 }
 
 fn show_window(app: &AppHandle) {
@@ -309,7 +309,7 @@ fn ocr_then_review(app: &AppHandle, verb: &'static str) {
             Some(0) => {}
             Some(4) => return, // cancelled with Esc
             Some(2) => return notify(&app, "The clipboard has no text or image to clean."),
-            Some(3) => return notify(&app, "No text was found in that capture. If it only showed your wallpaper, allow Screen Recording for Scotoma in System Settings."),
+            Some(3) => return notify(&app, "No text was found in that capture. If it only showed your wallpaper, allow Screen Recording for Scrub N Paste in System Settings."),
             _ => return notify(&app, &format!("Capture failed: {}", String::from_utf8_lossy(&out.stderr).trim())),
         }
         let text = String::from_utf8_lossy(&out.stdout).trim_end().to_string();
@@ -616,7 +616,7 @@ fn dictate_toggle(app: &AppHandle) {
     }
     if state.settings.lock().transcribe_cmd.trim().is_empty() {
         show_window(app);
-        return notify(app, "Set a speech model in Scotoma's side panel first.");
+        return notify(app, "Set a speech model in Scrub N Paste's side panel first.");
     }
     dictate_start(app);
     // Recording has no other on-screen sign, so show the window with its red Stop button.
@@ -801,7 +801,7 @@ fn main() {
             let blank = MenuItem::with_id(app, "blank", "New blank note (type or dictate)", true, Some(HOTKEY_BLANK))?;
             let grab = MenuItem::with_id(app, "capture", "Capture screen region", can_capture, Some(HOTKEY_CAPTURE))?;
             let restore = MenuItem::with_id(app, "restore", "Restore originals in clipboard", true, Some(HOTKEY_RESTORE))?;
-            let open = MenuItem::with_id(app, "open", "Open Scotoma", true, None::<&str>)?;
+            let open = MenuItem::with_id(app, "open", "Open Scrub N Paste", true, None::<&str>)?;
             let review = CheckMenuItem::with_id(app, "review", "Review before copying", true, settings.review, None::<&str>)?;
             let standins = CheckMenuItem::with_id(app, "standins", "Realistic stand-ins", true, settings.mode == Mode::Surrogate, None::<&str>)?;
             let strict = CheckMenuItem::with_id(app, "strict", "Strict mode", true, settings.strict, None::<&str>)?;
@@ -810,7 +810,7 @@ fn main() {
             let sep = || PredefinedMenuItem::separator(app);
             let menu = Menu::with_items(app, &[&scrub, &grab, &voice, &blank, &restore, &sep()?, &open, &sep()?, &review, &standins, &strict, &sep()?, &forget, &quit])?;
 
-            let mut tray = TrayIconBuilder::with_id("main").tooltip("Scotoma").menu(&menu).show_menu_on_left_click(true);
+            let mut tray = TrayIconBuilder::with_id("main").tooltip("Scrub N Paste").menu(&menu).show_menu_on_left_click(true);
             if let Some(icon) = app.default_window_icon() { tray = tray.icon(icon.clone()); }
             tray.on_menu_event(move |app, event| {
                 let state = app.state::<AppState>();
@@ -881,7 +881,7 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running Scotoma");
+        .expect("error while running Scrub N Paste");
 }
 
 #[cfg(test)]
