@@ -12,18 +12,21 @@ tags:
 - clinical
 datasets:
 - nvidia/Nemotron-PII
-thumbnail: https://huggingface.co/{{HF_REPO}}/resolve/main/assets/hero.png
+thumbnail: https://huggingface.co/DJLougen/scotoma-clinical-deid/resolve/main/assets/hero.png
 ---
 
 # Scotoma Clinical De-Identification v2 (small)
 
-`v2-small` is the token classifier inside [Scotoma](#), an on-device clinical
+`v2-small` is the token classifier inside [Scotoma](https://github.com/DJLougen/scotoma), an on-device clinical
 PHI redaction app for macOS (Tauri + Rust). It is
 `microsoft/deberta-v3-small` (141M parameters, 98M of which are the embedding
 table) fine-tuned to tag 21 HIPAA Safe-Harbor-style identifier categories, then
 exported to ONNX and quantized to per-channel int8.
 
 <p align="center"><img src="assets/hero.png" alt="Sealed 3: 2 leaked notes out of 7,108 vs 26 for rules+OpenMed-large@0.10" width="900"></p>
+
+<p align="center"><img src="assets/before_after.png" alt="rendered clinical note before and after scotoma redact-file" width="900"><br>
+<sub>Over-redaction shown as-is: “148/92” and the OCR’d “Sp02” were boxed (false positives on vitals); every planted identifier was covered.</sub></p>
 
 | | |
 |---|---|

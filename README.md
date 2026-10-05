@@ -13,6 +13,9 @@ Apache-2.0. See [NOTICE](NOTICE) for the data and model credits.
 
 <p align="center"><img src="docs/img/hero.png" alt="Sealed 3: 2 leaked notes out of 7,108 vs 26 for the strongest competitor" width="1000"></p>
 
+<p align="center"><img src="docs/img/before_after.png" alt="a rendered note before and after scotoma redact-file" width="1000"><br>
+<sub>Over-redaction shown as-is: “148/92” and the OCR’d “Sp02” were boxed (false positives on vitals); every planted identifier was covered.</sub></p>
+
 ## Benchmark headline
 
 Measured on **sealed** planted-identifier clinical sets — scored exactly once under a committed

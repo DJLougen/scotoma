@@ -185,6 +185,7 @@ def fig_hero():
         (roml10["docs_with_leak"], C_OML, "OpenMed-large @0.10"),
         (rours["docs_with_leak"], C_OURS, "ours (v2-small)"),
     ])
+    ax_a.invert_yaxis()
     ax_a.set_xlim(0, 118)
     ax_a.set_xlabel("notes with ≥1 identifier leaked", fontsize=8, color="#555555")
 
@@ -194,6 +195,7 @@ def fig_hero():
         (oml10["docs_with_leak"], C_OML, "OpenMed-large @0.10"),
         (ours["docs_with_leak"], C_OURS, "ours (v2-small)"),
     ])
+    ax_b.invert_yaxis()
     ax_b.set_xlim(0, 800)
     ax_b.set_xlabel("notes with ≥1 identifier leaked", fontsize=8, color="#555555")
 
@@ -595,13 +597,47 @@ def fig_pipeline():
 
 
 # ---------------------------------------------------------------- figure 7
+def _render_note(src: Path, out: Path):
+    """Render the example note as a clean letter-size page image (200 dpi)."""
+    from PIL import Image, ImageDraw, ImageFont
+    import glob
+    mono = glob.glob(str(ROOT / ".venv/lib/python*/site-packages/"
+                         "matplotlib/mpl-data/fonts/ttf/DejaVuSansMono.ttf"))
+    mono = mono[0] if mono else "/System/Library/Fonts/SFNSMono.ttf"
+    monob = mono.replace("Mono.ttf", "Mono-Bold.ttf")
+    if not Path(monob).exists():
+        monob = mono
+    W, H = 1700, 2200
+    img = Image.new("RGB", (W, H), "white")
+    d = ImageDraw.Draw(img)
+    fh = ImageFont.truetype(monob, 40)
+    fb = ImageFont.truetype(mono, 32)
+    x = 120
+    d.text((x, 120), "RIVERSIDE CLINIC — INTERNAL NOTE", font=fh, fill="#222222")
+    d.line((x, 195, W - x, 195), fill="#bbbbbb", width=3)
+    y, lh = 270, int(32 * 1.7)
+    for para in src.read_text().rstrip("\n").split("\n"):
+        line = ""
+        for w in para.split():
+            if len(line) + len(w) + 1 > 72:
+                d.text((x, y), line, font=fb, fill="#111111")
+                y += lh
+                line = w
+            else:
+                line = (line + " " + w).strip()
+        d.text((x, y), line, font=fb, fill="#111111")
+        y += lh
+    img.save(out)
+
+# ---------------------------------------------------------------- figure 7
 def fig_before_after():
-    out_png = ASSETS / "before_after.png"
     scotoma = ROOT / "target" / "release" / "scotoma"
     helper = ROOT / "app" / "src-tauri" / "bin" / "scotoma-helper"
     src = ROOT / "examples" / "21_hard_caps_and_bare_names.txt"
     needles = ["OKONKWO", "THADDEUS", "Marisol", "Reyes", "Larchmont", "Waukegan",
                "60085", "7KQ-2291", "555-0193", "00418827", "June", "03/14/2025"]
+    # clinical words that must NOT be boxed
+    keeps = ["Graves", "Bell", "palsy", "Metoprolol", "HR 88", "97%", "Intake"]
 
     def _skip(reason):
         for p in (ASSETS / "before_after.png", DOCS_IMG / "before_after.png"):
@@ -609,23 +645,22 @@ def fig_before_after():
         print(f"before_after: {reason} — figure NOT shipped", file=sys.stderr)
         PLOTTED["before_after"] = f"skipped: {reason}"
 
-    if not (scotoma.exists() and helper.exists() and shutil.which("cupsfilter")
-            and shutil.which("sips")):
+    if not (scotoma.exists() and helper.exists()):
         _skip("required tool missing")
         return
 
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
-        in_pdf, out_pdf = td / "in.pdf", td / "out.pdf"
-        with open(in_pdf, "wb") as f:
-            subprocess.run(["cupsfilter", str(src)], stdout=f, check=True)
-        subprocess.run([str(scotoma), "redact-file", str(in_pdf), str(out_pdf),
-                        "--model", str(ROOT / "models" / "v2-small")], check=True,
-                       capture_output=True)
-        ocr = subprocess.run([str(helper), "ocr-boxes", str(out_pdf)],
+        in_png, out_png = td / "in.png", td / "out.png"
+        _render_note(src, in_png)
+        subprocess.run([str(scotoma), "redact-file", str(in_png), str(out_png),
+                        "--model", str(ROOT / "models" / "v2-small")],
+                       check=True, capture_output=True)
+        ocr = subprocess.run([str(helper), "ocr-boxes", str(out_png)],
                              check=True, capture_output=True)
         pages = json.loads(ocr.stdout)["pages"]
         text = " ".join(l["text"] for p in pages for l in p["lines"])
+
         leaks = [n for n in needles if n.lower() in text.lower()]
         # partial-box check: an OCR'd word that is itself a long fragment of a
         # planted value (edge bleed around a box) is still a leak even when no
@@ -647,26 +682,37 @@ def fig_before_after():
             _skip(f"OCR found leaks {leaks}")
             return
 
-        before, after = td / "before.png", td / "after.png"
-        subprocess.run(["sips", "-s", "format", "png", "-s", "dpiWidth", "150",
-                        "-s", "dpiHeight", "150", str(in_pdf), "--out", str(before)],
-                       check=True, capture_output=True)
-        subprocess.run(["sips", "-s", "format", "png", "-s", "dpiWidth", "150",
-                        "-s", "dpiHeight", "150", str(out_pdf), "--out", str(after)],
-                       check=True, capture_output=True)
+        missing = [k for k in keeps if k.lower() not in text.lower()]
+        if missing:
+            _skip(f"clinical text over-redacted: {missing}")
+            return
 
-        ib, ia = plt.imread(before), plt.imread(after)
-        PLOTTED["before_after"] = {"planted_checked": needles, "leaks": []}
+        # vitals the engine boxes anyway — shown honestly in the caption
+        vitals_boxed = [k for k in ("148/92", "SpO2")
+                        if k.lower() not in text.lower()
+                        and k.lower().replace("o", "0") not in text.lower()]
 
-    fig = newfig(10, 7.2)
-    fig.suptitle("A scan in, a clean scan out — on-device",
-                 x=0.03, y=0.965, ha="left", fontsize=15, fontweight="bold", color=C_INK)
-    fig.text(0.03, 0.925,
+        ib, ia = plt.imread(in_png), plt.imread(out_png)
+        PLOTTED["before_after"] = {
+            "planted_checked": needles, "leaks": [],
+            "kept_checked": keeps, "vitals_boxed": vitals_boxed,
+        }
+
+    fig = newfig(10, 6.8)
+    fig.suptitle("A page in, a clean page out — on-device",
+                 x=0.03, y=0.96, ha="left", fontsize=15, fontweight="bold", color=C_INK)
+    fig.text(0.03, 0.912,
              "synthetic example note (examples/21_hard_caps_and_bare_names.txt) — "
-             "OCR word boxes → detected identifiers → black boxes, nothing sent anywhere",
+             "on-device OCR → detected identifiers → black boxes, nothing sent anywhere",
              ha="left", fontsize=9, color="#555555")
+    if vitals_boxed:
+        fig.text(0.03, 0.878,
+                 "over-redaction shown as-is: "
+                 + " and ".join(f"“{v}”" for v in vitals_boxed)
+                 + " boxed (false positives on vitals)",
+                 ha="left", fontsize=8.5, color="#8a5a00")
     for i, (img, t) in enumerate([(ib, "before"), (ia, "after  ·  scotoma redact-file")]):
-        ax = fig.add_axes([0.04 + i * 0.50, 0.05, 0.44, 0.83])
+        ax = fig.add_axes([0.04 + i * 0.50, 0.04, 0.43, 0.78])
         ax.imshow(img)
         ax.set_title(t, fontsize=11, fontweight="bold",
                      color=C_INK if i == 0 else darken(C_OURS))
