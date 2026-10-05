@@ -1,0 +1,86 @@
+[
+  {
+    "chars": 0.9815337178096272,
+    "clean_chars": 339298,
+    "full": 0.9542776998597475,
+    "gold_chars": 87565,
+    "leak_docs": 0,
+    "model_default": false,
+    "over_redaction": 0.00281168766099417,
+    "precision": 0.9929663194914108,
+    "recall": 1.0,
+    "threshold": 0.004999999888241291
+  },
+  {
+    "chars": 0.9810883343801747,
+    "clean_chars": 339298,
+    "full": 0.9525946704067321,
+    "gold_chars": 87565,
+    "leak_docs": 0,
+    "model_default": false,
+    "over_redaction": 0.0024373854252014455,
+    "precision": 0.9952432726284316,
+    "recall": 1.0,
+    "threshold": 0.009999999776482582
+  },
+  {
+    "chars": 0.9808599326214812,
+    "clean_chars": 339298,
+    "full": 0.9516129032258065,
+    "gold_chars": 87565,
+    "leak_docs": 0,
+    "model_default": true,
+    "over_redaction": 0.0021780263956757777,
+    "precision": 0.9968540555327589,
+    "recall": 1.0,
+    "threshold": 0.019999999552965164
+  },
+  {
+    "chars": 0.9802089876092046,
+    "clean_chars": 339298,
+    "full": 0.9486676016830294,
+    "gold_chars": 87565,
+    "leak_docs": 1,
+    "model_default": false,
+    "over_redaction": 0.00196877081503575,
+    "precision": 0.9982135495396455,
+    "recall": 0.999859747545582,
+    "threshold": 0.05000000074505806
+  },
+  {
+    "chars": 0.979523782333124,
+    "clean_chars": 339298,
+    "full": 0.9453015427769986,
+    "gold_chars": 87565,
+    "leak_docs": 1,
+    "model_default": false,
+    "over_redaction": 0.001883300225760246,
+    "precision": 0.9987611837577426,
+    "recall": 0.999859747545582,
+    "threshold": 0.10000000149011612
+  },
+  {
+    "chars": 0.9786558556500885,
+    "clean_chars": 339298,
+    "full": 0.9416549789621318,
+    "gold_chars": 87565,
+    "leak_docs": 2,
+    "model_default": false,
+    "over_redaction": 0.0018125659449805187,
+    "precision": 0.9997235659986178,
+    "recall": 0.9997194950911641,
+    "threshold": 0.20000000298023224
+  },
+  {
+    "chars": 0.9771712442185805,
+    "clean_chars": 339298,
+    "full": 0.9366058906030855,
+    "gold_chars": 87565,
+    "leak_docs": 5,
+    "model_default": false,
+    "over_redaction": 0.001797829636484742,
+    "precision": 0.9995841995841996,
+    "recall": 0.9991584852734923,
+    "threshold": 0.3499999940395355
+  }
+]

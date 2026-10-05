@@ -183,6 +183,9 @@ def main():
         tok = AutoTokenizer.from_pretrained(a.base)
         assert tok.is_fast, "need a fast tokenizer (tokenizer.json)"
         model = AutoModelForTokenClassification.from_pretrained(a.base, num_labels=len(LABELS), id2label=id2label, label2id=L2I, ignore_mismatched_sizes=True)
+        # transformers 5 loads checkpoints in their stored dtype (fp16 for some hub weights);
+        # AMP's GradScaler needs fp32 master weights, so train in fp32 and let autocast do fp16.
+        model = model.float()
         name = a.name or f"scotoma/{os.path.basename(a.base)}"
     max_len = min(a.max_len, int(getattr(model.config, "max_position_embeddings", 512)))
 
