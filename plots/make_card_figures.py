@@ -515,7 +515,7 @@ def fig_field():
                          "scored once · % of 860 notes leaking ≥1 identifier · "
                          "familiar formats")
     ax = card_axes(fig, (0.028, 0.055, 0.945, 0.80), pad=0.02)
-    ax.set_position([0.215, 0.095, 0.68, 0.685])
+    ax.set_position([0.215, 0.135, 0.68, 0.645])
 
     h = 0.36
     ys = np.arange(len(rows))
@@ -601,7 +601,7 @@ def fig_speed():
                          "bubble = ONNX file size · not shown: GLiNER ×4, "
                          "privacy-filter, Presidio (GPU-precomputed, n/m)")
     ax = card_axes(fig, (0.028, 0.055, 0.945, 0.80), pad=0.03)
-    ax.set_position([0.085, 0.115, 0.845, 0.685])
+    ax.set_position([0.085, 0.160, 0.845, 0.640])
 
     # better-quadrant: soft teal gradient, bottom-left
     ax.set_xlim(-5, 305)
@@ -715,7 +715,7 @@ def fig_progress():
 
     for i, (setname, rows) in enumerate(data.items()):
         ax = card_axes(fig, (0.028 + i * 0.485, 0.075, 0.455, 0.76), pad=0.025)
-        ax.set_position([0.075 + i * 0.485, 0.115, 0.395, 0.60])
+        ax.set_position([0.075 + i * 0.485, 0.175, 0.395, 0.54])
         xs = np.arange(len(rows))
         w = 0.34
         xlabels = []
