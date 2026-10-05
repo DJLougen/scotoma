@@ -1,52 +1,92 @@
 # Scotoma
 
-A clipboard scrubber for patient information. Copy part of a note, press a hotkey, check what was
-caught, paste. Then paste the model's answer back and have the real names put back in.
+An on-device scrubber for patient identifiers. Copy part of a clinical note, press a hotkey, check
+what was caught, paste. Then paste the reply back and press another hotkey to put the real names
+back in.
 
-It is a thin shell around two detectors: a deterministic rules engine for structured identifiers and
-any Hugging Face token-classification PII model exported to ONNX. The app makes no network
-connections, with one opt-in exception: a speech server on the same machine (loopback only).
+It is a Tauri desktop app (macOS tested; Linux builds) around a Rust core: a deterministic rules
+engine for structured identifiers plus a DeBERTa-v3-small token classifier (141 M params, per-channel
+int8 ONNX, 172 MB, ~20 ms per note on a laptop CPU). Nothing leaves the machine — the only socket
+the app ever opens is an optional, opt-in loopback connection to your own speech server.
 
-## What it does differently
+Apache-2.0. See [NOTICE](NOTICE) for the data and model credits.
 
-| | |
-|---|---|
-| **Review before paste** | The hotkey opens a side-by-side view. Click a highlight to keep it in, select text to redact something that was missed. Sub-threshold model hits are shown dashed as "possible" instead of being silently dropped. Nothing reaches the clipboard until you approve (or turn review off for one-keystroke use). |
-| **Reversible** | `[NAME_1]`, `[DATE_2:2024]` tags, or realistic stand-ins (consistent fake names, 555-01xx phone numbers, dates shifted by one per-session offset so intervals survive). A second hotkey restores originals in whatever is on the clipboard. The map lives in memory only, is zeroed on quit, on "forget", and after 30 idle minutes. |
-| **Safe Harbor details** | Dates keep only the year; a birth year implying age 90+ is dropped; ages over 89 become `90+`; ZIP keeps three digits, and the 17 sparse ZIP3 prefixes become `000`. |
-| **Name propagation** | Once "Eleanor Whitfield" is found, bare "Whitfield" and "Karen Whitfield" further down are caught too. |
-| **Recall-leaning decode** | Per-token identifier probability is summed over B-/I- variants and thresholded (default 0.35), rather than argmax. Long notes run in overlapping windows; nothing is truncated. |
-| **Measured** | `scotoma eval` scores the exact shipped pipeline per identifier type, and `scotoma sweep` shows recall against precision by threshold. |
-| **Swappable model** | Labels are mapped by keyword, so most HF PII models work by dropping a folder in. |
+## Benchmark headline
 
-## Layout
+Measured on **sealed** planted-identifier clinical sets — scored exactly once under a committed
+pre-registration, metric = share of notes with ≥1 identifier left untouched (lower is better),
+constraint = over-redaction ≤ 1 %. Full tables, method, verdicts and reproduction commands:
+[docs/BENCHMARK.md](docs/BENCHMARK.md) · raw files [bench/results/](bench/results/).
 
-```
-crates/core   detection, merge, redaction, vault, benchmark   (no network code)
-crates/cli    scotoma scrub | eval | sweep
-app/          Tauri 2 desktop app: tray, global hotkeys, review window (plain HTML/JS)
-scripts/      fetch_model.py, prep_dataset.py, markup_to_jsonl.py, make_toy_model.py
-eval/         fixtures/clinical_smoke.{markup,jsonl}
-```
+Sealed 2, 860 notes per set, 2026-10-05 ([SEALED2_RESULTS.md](bench/results/SEALED2_RESULTS.md)):
 
-## Build
+| system | model alone, familiar | model alone, novel formats | + our rules, familiar | + our rules, novel | ms/note (CPU) |
+|---|---|---|---|---|---|
+| **Scotoma v1-small** (int8 @0.02) | 0.6 % | 2.6 % | **0.2 %** | **0.2 %** | **19–20** |
+| OpenMed-PII-SuperClinical-Large-434M @0.10 | 5.7 % | 3.3 % | 0.6 % | 0.6 % | 240–255 |
+| OpenMed-PII-SuperClinical-Small-44M @0.02 | 15.2 % | 5.3 % | 0.6 % | 1.7 % | 19 |
+| StanfordAIMI/stanford-deidentifier @0.10 | 25.3 % | 25.1 % | 5.3 % | 5.0 % | 27–29 |
+| nvidia/gliner-PII | 29.2 % | 25.6 % | 2.7 % | 3.8 % | n/m |
+| openai/privacy-filter | 62.4 % | 65.3 % | 30.1 % | 29.1 % | n/m |
+| Microsoft Presidio | 72.2 % | 74.9 % | 43.5 % | 53.6 % | n/m |
+| iiiorg/piiranha-v1 | 97.2 % | 97.3 % | 69.4 % | 76.4 % | 91–96 |
+| rules only | 95.9 % | 96.9 % | — | — | 0.1 |
 
-Needs Rust and Node. On Linux also the Tauri system packages (`libwebkit2gtk-4.1-dev`,
-`libayatana-appindicator3-dev`, `librsvg2-dev`, `libxdo-dev`).
+Verdicts (paired bootstrap 95 % CI): significant wins over every competitor except
+OpenMed-large @0.10 + rules — a statistical tie (2 vs 5 leaked notes; the sealed-3 run now in
+progress is powered to resolve it), and OpenMed-small @0.02 + rules on familiar formats (tie).
+Ours is ~12× faster on CPU than OpenMed-large. The currently bundled model is **v2-small**
+(sha256 `33be2438…87e41`); its sealed-3 numbers are pending: **{{SEALED3: headline leak %,
+familiar and novel, rules+v2}}**.
+
+Honest history: in sealed 1 the same OpenMed-large configuration **beat** our v0 model (0.5 %
+vs 1.9 % / 1.7 %). [Details](docs/BENCHMARK.md#sealed-1--final-874-notes-per-set-model-scotoma-v0-int8-002).
+
+## Install and run
+
+Needs Rust, Node, and Python for the model export. On Linux also the Tauri system packages
+(`libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libxdo-dev`).
 
 ```sh
 pip install torch "transformers>=4.57,<5" onnx onnxruntime
-python scripts/fetch_model.py          # exports + int8-quantises the default model into app/src-tauri/models/default
+python scripts/fetch_model.py          # exports + int8-quantises a model into app/src-tauri/models/default
 cd app && npm install
-npm run dev                            # or: npm run build   → installers in target/release/bundle
+npm run dev                            # or: npm run build → installers in target/release/bundle
 ```
 
-Without a model folder the app runs on rules alone and says so in the header.
+Without a model folder the app runs on rules alone and says so in the header. The CLI:
 
-Hotkeys: `Ctrl/⌘+Alt+S` clean selection or clipboard, `Ctrl/⌘+Alt+R` restore originals,
-`Ctrl/⌘+Alt+N` blank note. All are also in the tray menu.
+```sh
+cargo run --release -p scotoma -- scrub < note.txt          # redact to stdout
+cargo run --release -p scotoma -- eval eval/fixtures/clinical_smoke.jsonl --no-model
+cargo run --release -p scotoma -- sweep eval/fixtures/clinical_smoke.jsonl --model models/v2-small
+```
 
-## Inputs (macOS overlay)
+## How it works
+
+- **Two detectors, merged.** A deterministic rules engine catches structured identifiers
+  (MRNs, SSNs, dates, ZIPs, phone, email); a token classifier catches names and anything else the
+  rules don't know. Labels are mapped by keyword, so most Hugging Face PII models work by dropping
+  a folder in.
+- **Review before paste.** The hotkey opens a side-by-side view. Click a highlight to keep it in,
+  select text to redact something missed. Sub-threshold model hits show dashed as "possible"
+  instead of being silently dropped. Nothing reaches the clipboard until you approve (or turn
+  review off for one-keystroke use).
+- **Reversible.** `[NAME_1]`, `[DATE_2:2024]` tags, or realistic stand-ins (consistent fake names,
+  555-01xx phone numbers, dates shifted by one per-session offset so intervals survive). `⌘⌥R`
+  restores originals in whatever is on the clipboard. The map lives in memory only, is zeroed on
+  quit, on "forget", and after 30 idle minutes.
+- **Safe Harbor details.** Dates keep only the year; a birth year implying age 90+ is dropped;
+  ages over 89 become `90+`; ZIP keeps three digits, and the 17 sparse ZIP3 prefixes become `000`.
+- **Name propagation.** Once "Eleanor Whitfield" is found, bare "Whitfield" and "Karen Whitfield"
+  further down are caught too.
+- **Recall-leaning decode.** Per-token identifier probability is summed over B-/I- variants and
+  thresholded (clinical point 0.02, stored in the model's config as `scotoma_threshold`) rather
+  than argmax. Long notes run in overlapping windows; nothing is truncated.
+- **Measured.** `scotoma eval` scores the exact shipped pipeline per identifier type, and
+  `scotoma sweep` shows recall against precision by threshold.
+
+### Inputs (macOS overlay)
 
 The window is a floating overlay: it appears over whatever you are doing, `esc` hides it, and it
 hides itself after **Copy cleaned text** so the paste lands where you were.
@@ -58,106 +98,87 @@ hides itself after **Copy cleaned text** so the paste lands where you were.
 | Screen region | `⌘⌥D` or **Capture** | Native crosshair → clipboard → Apple Vision OCR |
 | Voice, your model | `⌘⌥V` to start, again to stop, or **Dictate** | Records 16 kHz mono WAV, sends it to your speech model |
 | Voice, Superwhisper | `⌘⌥N`, then dictate | Opens the overlay empty and focused; anything that types into a field lands in it |
+| Blank note | `⌘⌥N` | Fresh overlay |
 
 **Speech model.** Set it in the side panel. Fastest is a server that keeps the model loaded:
 `http://127.0.0.1:8080/inference` (whisper.cpp `whisper-server`) or any OpenAI-style
-`/v1/audio/transcriptions` endpoint (add `#model=NAME` if it needs one). Only loopback addresses are
-accepted. Alternatively give a shell command that prints the transcript, with `{audio}` for the file,
-for example `whisper-cli -m ~/models/ggml-large-v3-turbo.bin -nt -np -f {audio}`; that reloads the
-model on every utterance. The recording is the one thing that touches disk (a temp file, deleted
-straight after transcription). The speech server connection is the only socket the app ever opens.
-
-If you dictate with Superwhisper, use one of its local voice models with no cloud post-processing
-mode: otherwise the audio has left the machine before Scotoma sees a word.
+`/v1/audio/transcriptions` endpoint (add `#model=NAME` if it needs one). Only loopback addresses
+are accepted. Alternatively give a shell command that prints the transcript, with `{audio}` for
+the file — for example `whisper-cli -m ~/models/ggml-large-v3-turbo.bin -nt -np -f {audio}` —
+but that reloads the model on every utterance. The recording is the one thing that touches disk
+(a temp file, deleted straight after transcription). The speech server connection is the only
+socket the app ever opens. If you dictate with Superwhisper, use a local voice model with no
+cloud post-processing: otherwise the audio has left the machine before Scotoma sees a word.
 
 **Latency.** The footer of the left pane shows where the time went for each input, for example
 `screen · read 240 ms · detect 35 ms`. The detection model is warmed at startup.
 
-**Permissions** (System Settings → Privacy & Security): Screen Recording for capture, Accessibility
-for reading the selection, Microphone for dictation. The app does not listen to the keyboard; it
-only registers its own hotkeys, so no Input Monitoring permission is needed. When
-launched with `npm run dev` the prompts name your terminal app rather than Scotoma.
+**Permissions** (System Settings → Privacy & Security): Screen Recording for capture,
+Accessibility for reading the selection, Microphone for dictation. The app does not listen to
+the keyboard; it only registers its own hotkeys, so no Input Monitoring permission is needed.
+When launched with `npm run dev` the prompts name your terminal app rather than Scotoma.
 
-Captured and dictated text always opens in review. The helper is `app/src-tauri/helper/main.swift`,
-compiled by the build (needs the Xcode command line tools). Not available on Windows or Linux yet.
+The capture helper is `app/src-tauri/helper/main.swift`, compiled by the build (needs the Xcode
+command line tools); not available on Windows or Linux yet.
 
-## Models
+## How it is evaluated
 
-| Model | Licence | Notes |
-|---|---|---|
-| `OpenMed/OpenMed-PII-SuperClinical-Small-44M-v1` (default) | Apache-2.0 | DeBERTa-v3-small, 54 entity types. Card reports micro-F1 0.954 on a 2,000-sample Nemotron-PII test split. The fp32 file is 566 MB because of the 128k-token embedding table; int8 should land near a quarter of that. |
-| `StanfordAIMI/stanford-deidentifier-base` | MIT | PubMedBERT, trained on real radiology reports + i2b2. |
-| `obi/deid_roberta_i2b2` | MIT | RoBERTa trained on i2b2 2014. |
-| `openai/privacy-filter` | Apache-2.0 | 8 coarse classes, strong but the smallest ONNX variant is about 810 MB. |
+Everything is in [docs/BENCHMARK.md](docs/BENCHMARK.md). In short: identifier values are planted
+first (test-only pool, disjoint from all training pools), an LLM from a *different family than
+the training-data generator* writes notes around the placeholders, and a fail-closed verifier
+substitutes the values — so labels are exact by construction and any note with stray
+identifier-looking text is rejected. "Novel-format" sets re-draw the structured identifiers from
+56 test-only formats never used in training. Every system is scored through the same
+`scotoma eval` pipeline, alone and with our rules engine. Sealed sets are scored once, under a
+committed pre-registration; significance is a paired bootstrap / exact McNemar on per-note leaks.
 
-## Benchmark and training
+## The model
+
+| | |
+|---|---|
+| Architecture | `microsoft/deberta-v3-small` fine-tuned for token classification, 141 M params (98 M embedding) |
+| Shipped format | 8-bit per-channel ONNX (`model_quantized.onnx`), 172 MB |
+| Threshold | 0.02 (clinical operating point, in `config.json` as `scotoma_threshold`) |
+| Latency | ~20 ms per note, M3 Max CPU |
+| Training data | 50 k NVIDIA Nemotron-PII docs (CC BY 4.0) + 30 k synthetic template docs + 12,273 clinical notes written by Qwen/Qwen3-14B-AWQ around planted fake identifiers — 3 epochs |
+| Model card | `release/hf/` (Hugging Face release assets) |
+
+Other HF token-classification PII models drop in as a folder (`scripts/fetch_model.py --model …`).
+Previously benchmarked: OpenMed-PII-SuperClinical-Small-44M (Apache-2.0), stanford-deidentifier
+(MIT), obi/deid_roberta_i2b2 (MIT), openai/privacy-filter (Apache-2.0, ~810 MB smallest ONNX).
+
+## Layout
 
 ```
-domains/    what each field's regulations name as identifying (clinical, tax, legal, hr, education)
-bench/      generate.py (templates), llm_generate.py (LLM-written), run.py (compare systems)
-train/      train.py (fine-tune + ONNX export), colab.ipynb
+crates/core   detection, merge, redaction, vault, benchmark   (no network code)
+crates/cli    scotoma scrub | eval | sweep | evalmany
+app/          Tauri 2 desktop app: tray, global hotkeys, review window (plain HTML/JS)
+scripts/      fetch_model.py, prep_dataset.py, markup_to_jsonl.py, make_toy_model.py
+eval/         fixtures/clinical_smoke.{markup,jsonl}
+domains/      what each field's regulations name as identifying (clinical, tax, legal, hr, education)
+bench/        generate.py, plant_generate.py, verify_planted.py, run.py, battery.py, formats.py
+train/        train.py (fine-tune + ONNX export), ingest_formats.py, colab.ipynb
+docs/         BENCHMARK.md — full method, all tables, reproduction
+bench/results/ every scorecard, pre-registration, and run log
 ```
-
-```sh
-python bench/generate.py --universe B --n 1500 --seed 1 --out bench/data/test.jsonl     # test
-python bench/generate.py --universe A --n 30000 --seed 7 --out bench/data/train.jsonl   # train
-python train/train.py --train bench/data/train.jsonl --dev bench/data/dev.jsonl --out models/v0
-python bench/run.py bench/data/test.jsonl --strict --system rules --system ours=models/v0 --system rules+ours=models/v0
-cargo run --release -p scotoma -- eval eval/fixtures/clinical_smoke.jsonl --no-model
-```
-
-**Design.** Universe A (train) and B (test) share no names, places, organisations, sentence templates
-or background sentences. Every identifier carries difficulty tags (`no_cue`, `single_name`,
-`common_word_name`, `relative`, `repeat`, `spoken`, `ocr`, `chat`, `fmt:*`), and results are reported
-per tag, per domain and per input mode. `run.py` scores any ONNX token classifier through the same
-code and writes `responses.csv` (items x systems; 0 missed, 1 partial, 2 full) for IRT.
-
-**Metrics.** Recall (identifier touched), full redaction, leak documents (at least one identifier
-untouched), and over-redaction: the share of ordinary text redacted by mistake. Report the last two
-together. A system that blacks out everything has perfect recall.
-
-### What has and has not been measured
-
-| System | Test set | Recall | Leak docs | Over-redaction |
-|---|---|---|---|---|
-| Rules only | `clinical_smoke` (18 notes, written alongside the rules) | 86.7% | 9 / 18 | n/a |
-| Rules only | Templates, universe B, 1,500 docs, strict | 52.9% | 97.7% | 0.1% |
-| Tiny smoke-test model (1.1M params, from scratch, CPU, 90 s) | same | 99.9% | 0.7% | **67.0%** |
-
-The third row is the important one. The tiny model "wins" on recall by redacting two thirds of
-ordinary text: trained only on templates, it learned that anything unfamiliar is an identifier.
-That is why over-redaction is in the table, and why template data alone cannot train or rank a real
-model. A pretrained backbone plus natural text (an open corpus, LLM-written documents) is required.
-
-Since then (2026-10-04, Colab L4): the default OpenMed model and a DeBERTa-v3-small trained with
-`train.py` on templates plus Nemotron-PII have been scored on the template test and on Nemotron-PII.
-Trained this way, the model's over-redaction falls to 0.5%. Numbers, setup and caveats:
-[`bench/results/README.md`](bench/results/README.md). Still not measured: ai4privacy, i2b2, and
-LLM-written test documents. `bench/llm_generate.py` has not been run.
-
-### Claiming a win honestly
-
-A model trained on universe A and tested on universe B is still being tested on its own generator's
-style. To claim it beats another model: test on documents from a different source than anything it
-trained on (a different LLM, a held-out open corpus, i2b2), run the competitors through `run.py`,
-and have a person verify a sample of the labels.
-
-The domain policy files are a reading of the cited regulations, not legal advice, and are not yet
-wired into the app: the app applies Safe Harbor treatment and a strict toggle regardless of domain.
-
-## Tested / untested
-
-Tested on Linux (Ubuntu 24.04, virtual display): unit tests, the ONNX path end to end with the toy
-model, and the real app driven through hotkey → review → toggle → manual redaction → copy → restore.
-
-Not tested: macOS and Windows builds, tray behaviour and notifications on those platforms, the
-default `ort` static-link path (the Linux check linked ONNX Runtime dynamically), and the Swift
-capture helper (the Rust side of capture was tested on Linux with a stand-in helper).
-Since then `fetch_model.py` has run on Colab and macOS, `prep_dataset.py` on Colab, and `train.py` in full on Colab plus a `--tiny` smoke run on macOS.
 
 ## Limits
 
-It can miss things. Rules cover formats, the model covers language, and neither reads minds: a
-rare-disease mention or "the mayor's wife" identifies someone without containing an identifier.
-Stand-in restore only works where the stand-in survives verbatim in the reply; tags are sturdier.
-Read the right-hand pane before pasting.
+- **It can miss things.** Rules cover formats, the model covers language, and neither reads
+  minds: a rare-disease mention or "the mayor's wife" identifies someone without containing an
+  identifier. Scotoma is a helper, not a guarantee — read the right-hand pane before pasting.
+- **All benchmark text is synthetic.** Labels are exact by construction, but the prose is
+  LLM-written. A real-clinical-text benchmark (i2b2/n2c2) has not been run yet.
+- Familiar-format test sets share identifier *formats* with our training-family generator code
+  (values are disjoint); the novel-format sets exist to control for this.
+- macOS is the tested platform (hotkeys, capture, OCR, dictation). The Rust core and CLI build
+  on Linux; the overlay helper is macOS-only. Windows untested.
+- Known false positives exist — e.g. the eponym "Babinski sign" can be flagged as a name.
+- Stand-in restore only works where the stand-in survives verbatim in the reply; tags are sturdier.
+- The domain policy files are a reading of the cited regulations, not legal advice.
+
+## Available for work
+
+The author is available for paid work: custom de-identification for your organisation's document
+types and identifier formats, new domains beyond clinical, on-device ML deployment, and benchmark
+design. Contact: **{{CONTACT}}**.

@@ -1,0 +1,46 @@
+Scotoma
+Copyright 2026 The Scotoma authors
+
+This product is licensed under the Apache License, Version 2.0
+(see LICENSE). It was developed with, and its bundled model was
+trained on or evaluated against, the following third-party works:
+
+Training data for the bundled token classifier (models/v2-small):
+
+  * NVIDIA Nemotron-PII
+    https://huggingface.co/datasets/nvidia/Nemotron-PII
+    License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+    https://creativecommons.org/licenses/by/4.0/
+    50,000 training documents.
+
+  * microsoft/deberta-v3-small
+    https://huggingface.co/microsoft/deberta-v3-small
+    License: MIT. Base weights for the bundled classifier.
+
+  * Qwen/Qwen3-14B-AWQ
+    https://huggingface.co/Qwen/Qwen3-14B-AWQ
+    License: Apache-2.0. Used to write 12,273 synthetic clinical notes
+    containing planted fake identifiers (training data only).
+
+Benchmark / evaluation components (not shipped in the app):
+
+  * RedHatAI/diffusiongemma-26B-A4B-it-FP8-dynamic
+    https://huggingface.co/RedHatAI/diffusiongemma-26B-A4B-it-FP8-dynamic
+    License: Apache-2.0. Wrote the synthetic clinical notes used for
+    benchmark test sets. A different model family from the training-data
+    generator, by design.
+
+  * Benchmarked systems were scored for comparison only and are not
+    redistributed here. In particular, iiiorg/piiranha-v1
+    (CC BY-NC-ND-4.0) was used solely as a benchmark point; nothing from
+    it is included in this repository or the app.
+
+Runtime and framework dependencies:
+
+  * ONNX Runtime (Microsoft) — MIT
+    https://github.com/microsoft/onnxruntime
+  * Tauri — Apache-2.0 / MIT dual license
+    https://tauri.app
+
+The synthetic clinical notes and planted identifier pools used for
+training and evaluation contain no real patient data.
