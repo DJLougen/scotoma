@@ -17,6 +17,8 @@ thumbnail: https://huggingface.co/DJLougen/scotoma-clinical-deid/resolve/main/as
 
 # Scotoma Clinical De-Identification v2 (small)
 
+**Support on [Ko-fi](https://ko-fi.com/djlougen) or X Money: [@DJLougen](https://x.com/DJLougen)**
+
 `v2-small` is the token classifier inside [Scotoma](https://github.com/DJLougen/scotoma), an on-device clinical
 PHI redaction app for macOS (Tauri + Rust). It is
 `microsoft/deberta-v3-small` (141M parameters, 98M of which are the embedding
@@ -26,7 +28,7 @@ exported to ONNX and quantized to per-channel int8.
 <p align="center"><img src="assets/hero.png" alt="Sealed 3: 2 leaked notes out of 7,108 vs 26 for rules+OpenMed-large@0.10" width="900"></p>
 
 <p align="center"><img src="assets/before_after.png" alt="rendered clinical note before and after scotoma redact-file" width="900"><br>
-<sub>Over-redaction shown as-is: “148/92” and the OCR’d “Sp02” were boxed (false positives on vitals); every planted identifier was covered.</sub></p>
+<sub>Over-redaction shown as-is: “148/92”, “SpO2” and “Civic” were boxed — false positives on vitals and the car model; every planted identifier was covered.</sub></p>
 
 | | |
 |---|---|
@@ -277,7 +279,7 @@ over-redaction ≤ 0.2% — so v2-small is the "ours" candidate.
 ```bibtex
 @misc{scotoma-clinical-deid-v2,
   title  = {Scotoma clinical de-identification model v2-small},
-  author = {{CONTACT}},
+  author = {Daniel Lougen},
   year   = {2026},
   note   = {ONNX, per-channel int8; sha256 33be2438...}
 }
@@ -287,4 +289,4 @@ over-redaction ≤ 0.2% — so v2-small is the "ours" candidate.
 
 Custom de-identification for your document types and identifier formats, new
 domains, on-device ML deployment, and benchmark design — the author is
-available for paid work: **{{CONTACT}}**
+available for paid work: **[Hugging Face](https://huggingface.co/DJLougen) · [Ko-fi](https://ko-fi.com/djlougen) · [X @DJLougen](https://x.com/DJLougen)**

@@ -14,7 +14,7 @@ Apache-2.0. See [NOTICE](NOTICE) for the data and model credits.
 <p align="center"><img src="docs/img/hero.png" alt="Sealed 3: 2 leaked notes out of 7,108 vs 26 for the strongest competitor" width="1000"></p>
 
 <p align="center"><img src="docs/img/before_after.png" alt="a rendered note before and after scotoma redact-file" width="1000"><br>
-<sub>Over-redaction shown as-is: “148/92” and the OCR’d “Sp02” were boxed (false positives on vitals); every planted identifier was covered.</sub></p>
+<sub>Over-redaction shown as-is: “148/92”, “SpO2” and “Civic” were boxed — false positives on vitals and the car model; every planted identifier was covered.</sub></p>
 
 ## Benchmark headline
 
@@ -211,4 +211,4 @@ bench/results/ every scorecard, pre-registration, and run log
 
 The author is available for paid work: custom de-identification for your organisation's document
 types and identifier formats, new domains beyond clinical, on-device ML deployment, and benchmark
-design. Contact: **{{CONTACT}}**.
+design. Contact: **[Hugging Face](https://huggingface.co/DJLougen) · [Ko-fi](https://ko-fi.com/djlougen) · [X @DJLougen](https://x.com/DJLougen)**.

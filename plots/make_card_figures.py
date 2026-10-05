@@ -627,7 +627,7 @@ def _render_note(src: Path, out: Path):
                 line = (line + " " + w).strip()
         d.text((x, y), line, font=fb, fill="#111111")
         y += lh
-    img.save(out)
+    img.crop((0, 0, W, min(H, y + 70))).save(out)
 
 # ---------------------------------------------------------------- figure 7
 def fig_before_after():
@@ -688,7 +688,7 @@ def fig_before_after():
             return
 
         # vitals the engine boxes anyway — shown honestly in the caption
-        vitals_boxed = [k for k in ("148/92", "SpO2")
+        vitals_boxed = [k for k in ("148/92", "SpO2", "Civic")
                         if k.lower() not in text.lower()
                         and k.lower().replace("o", "0") not in text.lower()]
 
@@ -698,21 +698,21 @@ def fig_before_after():
             "kept_checked": keeps, "vitals_boxed": vitals_boxed,
         }
 
-    fig = newfig(10, 6.8)
+    fig = newfig(10, 4.0)
     fig.suptitle("A page in, a clean page out — on-device",
-                 x=0.03, y=0.96, ha="left", fontsize=15, fontweight="bold", color=C_INK)
-    fig.text(0.03, 0.912,
+                 x=0.03, y=0.93, ha="left", fontsize=15, fontweight="bold", color=C_INK)
+    fig.text(0.03, 0.845,
              "synthetic example note (examples/21_hard_caps_and_bare_names.txt) — "
              "on-device OCR → detected identifiers → black boxes, nothing sent anywhere",
              ha="left", fontsize=9, color="#555555")
     if vitals_boxed:
-        fig.text(0.03, 0.878,
+        fig.text(0.03, 0.765,
                  "over-redaction shown as-is: "
-                 + " and ".join(f"“{v}”" for v in vitals_boxed)
-                 + " boxed (false positives on vitals)",
+                 + ", ".join(f"“{v}”" for v in vitals_boxed)
+                 + " boxed — false positives",
                  ha="left", fontsize=8.5, color="#8a5a00")
     for i, (img, t) in enumerate([(ib, "before"), (ia, "after  ·  scotoma redact-file")]):
-        ax = fig.add_axes([0.04 + i * 0.50, 0.04, 0.43, 0.78])
+        ax = fig.add_axes([0.04 + i * 0.50, 0.03, 0.43, 0.66])
         ax.imshow(img)
         ax.set_title(t, fontsize=11, fontweight="bold",
                      color=C_INK if i == 0 else darken(C_OURS))
