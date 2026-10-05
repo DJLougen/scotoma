@@ -4,6 +4,7 @@
 //!   scotoma eval   DATA.jsonl [--model DIR | --predictions PREDS.jsonl] [--strict] [--threshold P] [--limit N] [--misses N] [--json]
 //!   scotoma sweep  DATA.jsonl --model DIR [--limit N] [--thresholds 0.02,0.05,...] [--json]
 //!   scotoma convert IN.jsonl OUT.jsonl                # map any label set to Scotoma categories
+//!   scotoma redact-file IN.(png|jpg|tiff|pdf) OUT [--model DIR] [--threshold P] [--json]   # macOS: black-box identifiers in a scan
 //!
 //! eval also takes: --no-rules (score the model alone), --responses FILE.csv (per-item outcomes).
 //! --predictions replays spans written by bench/predict_external.py (one JSONL line per
@@ -122,6 +123,39 @@ fn run() -> Result<(), String> {
                 print!("{}", out.text);
                 eprintln!("\n— {} replaced, {} possible, engine: {} · threshold {}",
                     out.items.len(), det.possible.len(), engine_name(&sc), sc.config.threshold);
+            }
+        }
+        "redact-file" => {
+            // Image/PDF in → OCR word boxes → detected spans → black boxes out.
+            // macOS only (Vision/PDFKit live in the helper); the output is a PNG
+            // for a single-page image or an image-only PDF otherwise.
+            #[cfg(not(target_os = "macos"))]
+            return Err("redact-file is macOS-only: it needs the Vision/PDFKit helper".into());
+            #[cfg(target_os = "macos")]
+            {
+                let input = a.path.clone().ok_or("redact-file needs IN OUT")?;
+                let out = a.path2.clone().ok_or("redact-file needs IN OUT")?;
+                let sc = scrubber(&mut a)?;
+                let report = scotoma_core::redact::redact_document(
+                    &sc,
+                    std::path::Path::new(&input),
+                    std::path::Path::new(&out),
+                    None,
+                )?;
+                if a.json {
+                    // Span offsets are within the OCR'd page text; the text
+                    // itself (and anything it matched) is never printed.
+                    println!("{}", serde_json::json!({
+                        "words": report.words,
+                        "counts": report.counts,
+                        "boxes": report.boxes,
+                        "spans": report.spans,
+                    }));
+                } else {
+                    let counts = report.counts.iter().map(|(k, v)| format!("{k}×{v}")).collect::<Vec<_>>().join(" ");
+                    println!("{} words OCR'd, {} identifiers ({}), {} boxes painted → {}",
+                        report.words, report.spans.len(), counts, report.boxes, out);
+                }
             }
         }
         "eval" => {

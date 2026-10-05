@@ -61,6 +61,31 @@ struct AppState {
     /// An in-progress microphone recording and the file it is writing.
     recorder: Mutex<Option<(Child, PathBuf)>>,
     pending: Mutex<Option<Analysis>>,
+    /// The last redacted document: painted output + previews in a temp dir,
+    /// kept until it is saved to a user-chosen path or replaced.
+    pending_doc: Mutex<Option<PendingDoc>>,
+}
+
+/// A redacted document waiting for its Save button.
+#[derive(Debug, Clone)]
+struct PendingDoc {
+    /// The painted file (PNG or image-only PDF) in a temp dir.
+    file: PathBuf,
+    /// Temp dir that owns `file` and the page previews; removed on replace/quit.
+    dir: PathBuf,
+    /// Suggested save name, e.g. "note-redacted.pdf".
+    suggested: String,
+}
+
+/// Sent to the window as the "document" event when a file is redacted.
+#[derive(Serialize, Clone)]
+struct DocumentResult {
+    name: String,
+    pages: Vec<String>,   // base64 PNG of each painted page
+    words: usize,
+    counts: std::collections::BTreeMap<String, usize>,
+    boxes: usize,
+    error: Option<String>,
 }
 
 /// A span as the window sees it: UTF-16 offsets, plus the matched text.
@@ -464,6 +489,97 @@ fn restore_clipboard_impl(app: &AppHandle) {
     }
 }
 
+/// The "Open file…" button: pick an image or PDF, redact it to a scratch file,
+/// and hand painted page previews to the window. The person saves it with the
+/// Save button; until then it lives only in a temp dir.
+#[tauri::command]
+fn open_document(app: AppHandle) {
+    use tauri_plugin_dialog::DialogExt;
+    let picked = app.dialog().file()
+        .add_filter("Documents", &["png", "jpg", "jpeg", "tiff", "tif", "pdf"])
+        .blocking_pick_file();
+    let Some(fp) = picked else { return };
+    let path = match fp.clone().into_path() { Ok(p) => p, Err(_) => PathBuf::from(fp.to_string()) };
+    let app2 = app.clone();
+    std::thread::spawn(move || process_document(&app2, path));
+}
+
+fn process_document(app: &AppHandle, input: PathBuf) {
+    use base64::Engine;
+    let state = app.state::<AppState>();
+    let fail_evt = |msg: &str| {
+        let _ = app.emit("document", DocumentResult {
+            name: String::new(), pages: vec![], words: 0,
+            counts: Default::default(), boxes: 0, error: Some(msg.to_string()),
+        });
+        show_window(app);
+    };
+    #[cfg(not(target_os = "macos"))]
+    return fail_evt("File redaction needs macOS (Vision + PDFKit).");
+    #[cfg(target_os = "macos")]
+    {
+        if scotoma_core::redact::find_helper().is_none() {
+            return fail_evt("The OCR helper isn't installed (scotoma-helper).");
+        }
+        // Clean the previous pending document first: it may still carry
+        // identifiers, and nothing but this window refers to it.
+        if let Some(old) = state.pending_doc.lock().take() { let _ = std::fs::remove_dir_all(old.dir); }
+        let dir = std::env::temp_dir().join(format!("scotoma-doc-{}-{:x}", std::process::id(), Instant::now().elapsed().as_nanos()));
+        let name = input.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "document".into());
+        let stem = input.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "document".into());
+        let ext = input.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+        let (suggested, out) = if ext == "pdf" {
+            (format!("{stem}-redacted.pdf"), dir.join("redacted.pdf"))
+        } else {
+            (format!("{stem}-redacted.png"), dir.join("redacted.png"))
+        };
+        let preview_dir = dir.join("previews");
+        let report = match scotoma_core::redact::redact_document(&state.scrubber.lock(), &input, &out, Some(&preview_dir)) {
+            Ok(r) => r,
+            Err(e) => { let _ = std::fs::remove_dir_all(&dir); return fail_evt(&e); }
+        };
+        let mut pages = Vec::new();
+        for i in 1..=64 {
+            let p = preview_dir.join(format!("page-{i}.png"));
+            if !p.is_file() { break; }
+            if let Ok(bytes) = std::fs::read(&p) {
+                pages.push(base64::engine::general_purpose::STANDARD.encode(bytes));
+            }
+        }
+        *state.pending_doc.lock() = Some(PendingDoc { file: out, dir, suggested });
+        let _ = app.emit("document", DocumentResult {
+            name, pages, words: report.words, counts: report.counts, boxes: report.boxes, error: None,
+        });
+        show_window(app);
+    }
+}
+
+/// The document review's Save button: move the painted scratch file to a path
+/// the person picks in a native save panel.
+#[tauri::command]
+fn save_document(app: AppHandle, state: State<AppState>) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let Some(pending) = state.pending_doc.lock().take() else {
+        return Err("No redacted document is waiting.".into());
+    };
+    let picked = app.dialog().file()
+        .set_file_name(&pending.suggested)
+        .blocking_save_file();
+    let Some(fp) = picked else {
+        // Cancelled: keep the pending doc so the button stays usable.
+        *state.pending_doc.lock() = Some(pending);
+        return Err("cancelled".into());
+    };
+    let dest = fp.into_path().map_err(|_| "that location can't be used".to_string())?;
+    if dest == pending.file {
+        *state.pending_doc.lock() = Some(pending);
+        return Err("pick a different name — that is the scratch copy".into());
+    }
+    std::fs::copy(&pending.file, &dest).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_dir_all(&pending.dir);
+    Ok(dest.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 fn status(state: State<AppState>) -> Status { status_of(&state) }
 
@@ -624,6 +740,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
@@ -647,9 +764,10 @@ fn main() {
             capturing: AtomicBool::new(false),
             recorder: Mutex::new(None),
             pending: Mutex::new(None),
+            pending_doc: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
-            status, analyze, pending, preview, approve, capture, dictate, hide_window, read_clipboard, copy_text, restore_text, clear_vault, set_settings
+            status, analyze, pending, preview, approve, capture, dictate, hide_window, read_clipboard, copy_text, restore_text, clear_vault, set_settings, open_document, save_document
         ])
         .setup(|app| {
             // A menu-bar utility: no Dock icon, and the overlay can sit above
@@ -707,6 +825,7 @@ fn main() {
                     "quit" => {
                         state.vault.lock().clear();
                         if let Some((mut c, path)) = state.recorder.lock().take() { let _ = c.kill(); let _ = std::fs::remove_file(path); }
+                        if let Some(d) = state.pending_doc.lock().take() { let _ = std::fs::remove_dir_all(d.dir); }
                         return app.exit(0);
                     }
                     "forget" => state.vault.lock().clear(),

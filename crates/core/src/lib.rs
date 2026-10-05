@@ -10,6 +10,7 @@ pub mod merge;
 #[cfg(feature = "onnx")]
 pub mod model;
 pub mod precomputed;
+pub mod redact;
 pub mod rules;
 pub mod transform;
 

@@ -144,6 +144,8 @@ invoke("pending").then((a) => { if (a && !text) { ++seq; show(a); } });
 }
 
 function show(analysis) {
+  docMode = false;
+  $("docview").hidden = true; $("cleaned").hidden = false; $("docsave").hidden = true;
   text = analysis.text;
   spans = analysis.spans;
   spans.forEach((s) => fresh.add(s));
@@ -166,12 +168,56 @@ async function analyze(str) {
   } catch (e) { toast("Could not analyse: " + e); }
 }
 
+let docMode = false;       // showing a redacted document instead of text
+
 function reset() {
   text = ""; spans = [];
+  docMode = false;
   $("input").hidden = false; $("original").hidden = true; $("edit").hidden = true; $("seltool").hidden = true;
+  $("docview").hidden = true; $("cleaned").hidden = false; $("docsave").hidden = true;
   $("orig-hint").textContent = "stays on this machine";
   renderSide(); refreshPreview();
 }
+
+// --- documents ----------------------------------------------------------------
+// The Rust side picks the file, runs OCR + detect + paint, and emits "document"
+// with painted page previews. Nothing is written anywhere until Save.
+$("openfile").addEventListener("click", () => invoke("open_document"));
+$("docsave").addEventListener("click", async () => {
+  $("docsave").disabled = true;
+  try {
+    const dest = await invoke("save_document");
+    toast("Saved to " + dest);
+    $("docsave").hidden = true;
+  } catch (e) { if (String(e) !== "cancelled") toast("Could not save: " + e); }
+  $("docsave").disabled = false;
+});
+
+function showDocument(d) {
+  if (d.error) { toast(d.error); return; }
+  docMode = true;
+  const v = $("docview");
+  v.innerHTML = "";
+  for (const png of d.pages) {
+    const img = new Image();
+    img.src = "data:image/png;base64," + png;
+    img.className = "page";
+    v.append(img);
+  }
+  $("cleaned").hidden = true;
+  v.hidden = false;
+  $("docsave").hidden = false;
+  const counts = Object.entries(d.counts).map(([k, n]) => `${k} ×${n}`).join(", ");
+  $("orig-hint").textContent = `${d.name} — ${d.words} words read, ${d.boxes} boxes painted (${counts}). Not saved yet.`;
+  $("n-on").textContent = Object.values(d.counts).reduce((a, b) => a + b, 0);
+  $("n-maybe").textContent = 0;
+  text = "";                       // nothing text-shaped to approve/copy
+  $("approve").disabled = true;
+}
+listen("document", (e) => {
+  document.querySelector('.tabs button[data-tab="clean"]').click();
+  showDocument(e.payload);
+});
 
 // --- interactions -----------------------------------------------------------
 $("original").addEventListener("click", (ev) => {

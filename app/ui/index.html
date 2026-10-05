@@ -29,6 +29,7 @@
       <span class="spacer"></span>
       <button class="ghost" id="dictate" hidden title="Record, then transcribe with your speech command">Dictate</button>
       <button class="ghost" id="capture" hidden title="Drag over text on screen; it is read on this machine">Capture</button>
+      <button class="ghost" id="openfile" title="Redact a scanned image or PDF: identifiers are blacked out, nothing leaves this machine">Open file…</button>
       <button class="ghost" id="paste" title="Paste the clipboard">Paste</button>
       <button class="ghost" id="edit" hidden title="Edit the text">Edit</button>
     </div>
@@ -45,12 +46,14 @@
     <div class="pane-head">
       <h2>What gets copied</h2>
       <span class="spacer"></span>
+      <button class="ghost" id="docsave" hidden title="Save the redacted document where you choose">Save…</button>
       <div class="seg" role="group" aria-label="Replacement style">
         <button data-mode="tag" aria-pressed="true" title="[NAME_1], [DATE_2:2024]. Safe Harbor-shaped, exactly reversible.">Tags</button>
         <button data-mode="surrogate" aria-pressed="false" title="Realistic stand-in names, numbers and shifted dates.">Stand-ins</button>
       </div>
     </div>
     <div id="cleaned" class="doc empty">Cleaned text appears here.</div>
+    <div id="docview" class="doc" hidden></div>
   </section>
 
   <aside class="side">
