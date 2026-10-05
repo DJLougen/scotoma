@@ -108,10 +108,18 @@ Three sources, mixed. The ratio is the main thing to tune.
 - [ ] Generate 5k to 20k LLM documents per domain for training.
 - [ ] Add hard negatives on purpose: documents with zero identifiers, eponyms (Graves, Bell, Wilson),
       statute and form numbers, scores and doses. These directly attack over-redaction.
-- [ ] Build `train/mix.py`: assemble a training file from the three sources at a given ratio, with a
+- [x] Build `train/mix.py`: assemble a training file from the three sources at a given ratio, with a
       manifest recording sources, seeds, generator models and counts. Every trained model points at
       its manifest.
 - [ ] Start at roughly 60% open corpus, 30% LLM, 10% templates. Cap templates low.
+
+Planted-LLM train corpus (v1): `bench/plant_generate.py spec --pool train` writes universe-A specs
+(`T-clinical-*`, cluster mix over-sampling the observed misses — ALL-CAPS 'LAST, FIRST', bare
+first/surname incl. train-only common-word names, weak-context plates/VINs, bare ZIPs, ages > 89,
+spoken forms — plus ~10% zero-identifier hard negatives). `gen` requires an explicit `--model`
+(Qwen3 family, never the test generator). The same `bench/verify_planted.py` verifies and labels;
+`plant_generate.py leakcheck` proves planted values disjoint from dev. `train/mix.py` refuses any
+path or record touching dev/sealed/test.
 
 **Exit:** a reproducible training set per domain, with a manifest.
 

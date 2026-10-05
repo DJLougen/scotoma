@@ -57,6 +57,13 @@ tags+'planted'}]). A deterministic split field 'dev'/'sealed' is set by
 sha256(id) parity, and split files clin_dev.jsonl / clin_sealed.jsonl are
 written next to --out. Rejects go to --rejects with id+reason.
 
+Train-pool specs (pool='train', ids T-clinical-*) go through the same
+machinery: records carry universe 'A' and split 'train' straight from the
+spec, hard-negative specs (planted: []) pass only if every screen is clean,
+and the train-only common-name pools are added to the common-name screen so
+an unplanted 'Bramble' still rejects. Empty dev/sealed split files are not
+written.
+
 This is a constructed, deterministically-labelled TEST set. It does not
 replace a human-checked natural gold set for public/marketing claims.
 """
@@ -167,9 +174,12 @@ def _sentence_initial(text, s):
     return False
 
 
-def screens(text, spans, use_scotoma=None):
+def screens(text, spans, use_scotoma=None, common_pool=None, common_ambiguous=None):
     """Return list of reject reasons for unplanted identifiers outside spans."""
     reasons = []
+    common_pool = COMMON_POOL if common_pool is None else common_pool
+    common_ambiguous = COMMON_AMBIGUOUS if common_ambiguous is None else common_ambiguous
+
     def outside(s, e):
         return not _overlaps(spans, s, e)
 
@@ -181,8 +191,8 @@ def screens(text, spans, use_scotoma=None):
         if tok in REAL_POOL:
             if not (initial and tok in STOP):
                 reasons.append(f"name-pool:{m.group(0)}@{m.start()}")
-        elif tok in COMMON_POOL:
-            if not initial or tok not in COMMON_AMBIGUOUS:
+        elif tok in common_pool:
+            if not initial or tok not in common_ambiguous:
                 reasons.append(f"common-name:{m.group(0)}@{m.start()}")
 
     for m in DIGITS.finditer(text):
@@ -351,18 +361,31 @@ def verify_doc(spec, raw, scotoma_bin=None):
     if echo_check(raw_text, spec):
         return None, ["echoed-value-list"]
     try:
-        reasons = screens(text, spans, scotoma_bin)
+        if spec.get("pool") == "train":
+            # Train specs can plant the train-only common names; an UNPLANTED
+            # occurrence must still reject, so screen them too.
+            reasons = screens(text, spans, scotoma_bin,
+                              common_pool=COMMON_POOL | {w.lower() for w in
+                                                         pg.TRAIN_COMMON_FIRST + pg.TRAIN_COMMON_LAST},
+                              common_ambiguous=COMMON_AMBIGUOUS | pg.TRAIN_COMMON_AMBIGUOUS)
+        else:
+            reasons = screens(text, spans, scotoma_bin)
     except RuntimeError as e:
         return None, [f"scotoma-error:{e}"]
     if reasons:
         return None, reasons
-    return {"id": spec["id"], "domain": "clinical", "mode": spec.get("mode", ""),
-            "universe": "C", "style": spec.get("style", ""), "generator": raw.get("model", ""),
-            "prompt_sha256": raw.get("prompt_sha256", ""),
-            "split": "dev" if int(hashlib.sha256(spec["id"].encode()).hexdigest(), 16) % 2 == 0 else "sealed",
-            "text": text,
-            "spans": [{"start": s, "end": e, "label": it["label"], "kind": it["kind"],
-                       "tags": it["tags"] + ["planted"]} for s, e, it in spans]}, []
+    rec = {"id": spec["id"], "domain": "clinical", "mode": spec.get("mode", ""),
+           "universe": spec.get("universe", "C"), "style": spec.get("style", ""), "generator": raw.get("model", ""),
+           "prompt_sha256": raw.get("prompt_sha256", ""),
+           "split": spec.get("split") or ("dev" if int(hashlib.sha256(spec["id"].encode()).hexdigest(), 16) % 2 == 0 else "sealed"),
+           "text": text,
+           "spans": [{"start": s, "end": e, "label": it["label"], "kind": it["kind"],
+                      "tags": it["tags"] + ["planted"]} for s, e, it in spans]}
+    if spec.get("pool"):
+        rec["pool"] = spec["pool"]
+    if spec.get("cluster"):
+        rec["cluster"] = spec["cluster"]
+    return rec, []
 
 
 def split_paths(out_path):
@@ -401,6 +424,8 @@ def run(spec_path, raw_path, out_path, rejects_path, scotoma_bin=None):
                 f.write(json.dumps(d, ensure_ascii=False) + "\n")
     dev_p, sealed_p = split_paths(out_path)
     for path, want in ((dev_p, "dev"), (sealed_p, "sealed")):
+        if not any(d["split"] == want for d in accepted):
+            continue  # train-only runs produce no dev/sealed files
         with open(path, "w", encoding="utf-8") as f:
             for d in accepted:
                 if d["split"] == want:
@@ -412,7 +437,8 @@ def run(spec_path, raw_path, out_path, rejects_path, scotoma_bin=None):
     print(f"accepted {len(accepted)} / rejected {len(rejected)} in {time.time() - t0:.2f}s")
     print("reject reasons:", dict(rc.most_common()))
     print("label counts:", dict(lc.most_common()))
-    print(f"split: dev={sum(1 for d in accepted if d['split'] == 'dev')} sealed={sum(1 for d in accepted if d['split'] == 'sealed')} -> {dev_p}, {sealed_p}")
+    sc = Counter(d["split"] for d in accepted)
+    print(f"split: {dict(sc.most_common())} -> dev/sealed files {dev_p}, {sealed_p} (written only when non-empty)")
 
 
 # ----------------------------------------------------------------------------
@@ -533,6 +559,28 @@ def selftest():
     # scotoma screen fails closed on a bad binary
     rec, rs = verify_doc(good, {"id": "G", "text": "[[NAME_1]] ok"}, "/nonexistent-scotoma")
     check("scotoma fail-closed", rec is None and any(r.startswith("scotoma-error:") for r in rs))
+
+    # train-pool specs: universe A values, split 'train', and the train-only
+    # common-name pool is screened for UNPLANTED occurrences.
+    tspec = {"id": "T-clinical-7-00000", "spec_mode": "sentinel", "mode": "notes", "style": "x",
+             "pool": "train", "universe": "A", "split": "train", "cluster": "bare_name", "planted": [
+        {"ph": "NAME_1", "value": "James Smith", "label": "NAME", "kind": "person", "count": 1, "tags": []}]}
+    rec, rs = verify_doc(tspec, {"id": "T-clinical-7-00000", "model": "t", "text": "[[NAME_1]] takes metoprolol 25 mg."})
+    check("train rec fields", rec and rec["split"] == "train" and rec["universe"] == "A"
+          and rec["pool"] == "train" and rec["cluster"] == "bare_name")
+    rec, rs = verify_doc(tspec, {"id": "T-clinical-7-00000", "model": "t",
+                                 "text": "[[NAME_1]] takes metoprolol. A Bramble hedge borders the lot."})
+    check("train common-name screen", rec is None and any(r.startswith("common-name:") for r in rs))
+    hn = {"id": "T-clinical-7-00001", "spec_mode": "sentinel", "mode": "notes", "style": "x",
+          "pool": "train", "universe": "A", "split": "train", "cluster": "hard_neg",
+          "hard_negative": True, "planted": []}
+    rec, rs = verify_doc(hn, {"id": "T-clinical-7-00001", "model": "t",
+                              "text": "Parkinson disease stable; Bell's palsy resolved. Metoprolol 25 mg BID. GCS 15."})
+    check("train hard-neg clean", rec and rec["spans"] == [] and rec["cluster"] == "hard_neg")
+    rec, rs = verify_doc(hn, {"id": "T-clinical-7-00001", "model": "t",
+                              "text": "Graves disease stable. Metoprolol 25 mg."})
+    check("train hard-neg eponym reject", rec is None
+          and any(r.startswith(("common-name:", "name-pool:")) for r in rs))
 
     bad = [n for n, c in ok if not c]
     for n, c in ok:
