@@ -1,6 +1,6 @@
 # Battery scorecard: scotoma-demo-fmt
 
-model `/Users/djl/Projects/scotoma/models/scotoma-demo-fmt` · threshold 0.02 · rules both · **quick: first 100 docs per set** · 2026-10-04 22:27:38 · 50.4s
+model `models/scotoma-demo-fmt` · threshold 0.02 · rules both · **quick: first 100 docs per set** · 2026-10-04 22:27:38 · 50.4s
 
 | set | docs | system | recall | fully redacted | leak docs | over-redaction | precision | ms/doc |
 |---|---|---|---|---|---|---|---|---|

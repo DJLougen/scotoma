@@ -11,3 +11,7 @@ models/
 .DS_Store
 __pycache__/
 preds/
+# HF staging output (binary artefacts live on the hub, not in this repo)
+release/hf/scotoma-clinical-deid-v2/*.onnx
+release/hf/scotoma-clinical-deid-v2/tokenizer.json
+release/hf/scotoma-clinical-deid-v2/config.json

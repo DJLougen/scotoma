@@ -1,5 +1,5 @@
 {
- "model": "/Users/djl/Projects/scotoma/models/scotoma-demo-fmt",
+ "model": "models/scotoma-demo-fmt",
  "name": "scotoma-demo-fmt",
  "threshold": "0.02",
  "rules": "both",
@@ -756,7 +756,7 @@
    "note": "int8 99.88% vs fp32 100.00%"
   }
  ],
- "baseline": "/Users/djl/Projects/scotoma/models/scotoma-demo-fmt/baseline_battery/scorecard.json",
+ "baseline": "bench/results/battery/demo-fmt/baseline_scorecard.json",
  "primary": "scotoma-demo-fmt",
  "pass": false,
  "wall_s": 50.4

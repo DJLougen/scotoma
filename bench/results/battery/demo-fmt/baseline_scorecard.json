@@ -1,5 +1,5 @@
 {
- "model": "/Users/djl/Projects/scotoma/models/scotoma-v0-int8pc",
+ "model": "models/scotoma-v0-int8pc",
  "name": "scotoma-v0-int8pc",
  "threshold": "0.02",
  "rules": "both",

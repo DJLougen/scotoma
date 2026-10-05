@@ -1,6 +1,6 @@
 # Battery scorecard: scotoma-v0-int8pc
 
-model `/Users/djl/Projects/scotoma/models/scotoma-v0-int8pc` · threshold 0.02 · rules both · 2026-10-04 22:15:06 · 468.4s
+model `models/scotoma-v0-int8pc` · threshold 0.02 · rules both · 2026-10-04 22:15:06 · 468.4s
 
 | set | docs | system | recall | fully redacted | leak docs | over-redaction | precision | ms/doc |
 |---|---|---|---|---|---|---|---|---|

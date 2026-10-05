@@ -1,7 +1,7 @@
 {
- "base": "/Users/djl/Projects/scotoma/models/scotoma-v0/hf",
+ "base": "models/scotoma-v0/hf",
  "base_safetensors_sha256": "dc70aad5b6f5f57bc5339773e5cd1c7650fb74a0d4049ae60e7ee480bfafa5b3",
- "out": "/Users/djl/Projects/scotoma/models/scotoma-demo-fmt",
+ "out": "models/scotoma-demo-fmt",
  "seed": 0,
  "steps": 150,
  "epochs": 3,
@@ -53,6 +53,6 @@
   "bench/data/dev_tpl.jsonl"
  ],
  "battery_exit": 1,
- "baseline_scorecard": "/Users/djl/Projects/scotoma/models/scotoma-demo-fmt/baseline_battery/scorecard.json",
+ "baseline_scorecard": "bench/results/battery/demo-fmt/baseline_scorecard.json",
  "wall_s": 196.9
 }
