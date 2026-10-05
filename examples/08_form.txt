@@ -1,0 +1,13 @@
+PATIENT INTAKE FORM:
+Patient Name: Mario Oneill
+Date of Visit: 2025-07-09
+Next Appointment Date: 08/18/2022
+Health Plan Member ID: QX-173-6651-34
+Emergency Contact Surname: Mccall
+Contact Email: mario.oneill@example.invalid
+Insurance Fax Number: 247-555-0197
+Vehicle VIN: JM1AAYGF6L6ACWNWF
+
+The patient presented to the clinic for a routine evaluation of persistent fatigue and localized joint pain. During the history, the patient reported that symptoms worsened during physical activity but were relieved by rest. Physical examination revealed mild swelling in the right knee, though no redness was noted. The insurer has confirmed coverage under member ID QX-173-6651-34 for the recommended diagnostic imaging tests. 
+
+The treatment plan involves initiating a low dose of an anti-inflammatory medication and scheduling physical therapy. The patient was instructed to monitor for adverse reactions and contact the clinic if symptoms escalate. All clinical records will be transmitted to the primary care physician via the provided fax line for coordination of care. The patient agreed to the proposed protocol and will return for follow-up assessment on the scheduled date.

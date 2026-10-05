@@ -40,6 +40,7 @@ function applyStatus(s) {
   $("threshold").value = Math.min(0.98, Math.max(0.02, +(1 - s.threshold).toFixed(2)));
   $("threshold-out").textContent = Math.round((1 - s.threshold) * 100) + "%" + (settings.threshold == null ? " (model default)" : "");
   $("threshold").disabled = !s.model;
+  $("threshold-reset").hidden = !s.model || settings.threshold == null;
   $("strict").checked = settings.strict;
   $("review").checked = settings.review;
   document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === settings.mode)));
@@ -256,6 +257,7 @@ $("strict").addEventListener("change", (e) => saveSettings({ strict: e.target.ch
 $("review").addEventListener("change", (e) => saveSettings({ review: e.target.checked }, false));
 $("threshold").addEventListener("input", (e) => ($("threshold-out").textContent = Math.round(e.target.value * 100) + "%"));
 $("threshold").addEventListener("change", (e) => saveSettings({ threshold: +(1 - e.target.value).toFixed(2) }, true));
+$("threshold-reset").addEventListener("click", () => saveSettings({ threshold: null }, true));
 $("capture").addEventListener("click", () => invoke("capture"));
 $("dictate").addEventListener("click", () => invoke("dictate"));
 $("speech").addEventListener("change", (e) => saveSettings({ transcribe_cmd: e.target.value.trim() }, false));

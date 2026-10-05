@@ -1,0 +1,12 @@
+PATIENT INTAKE FORM: Willow Bend Imaging Center
+Name: Roberta Valdez Valdez
+Age: ninety-nine
+Medical Record Number: M1544809
+Social Security Number: 423-88-5575
+Postal Code: 42760
+
+Clinical Presentation:
+The patient presents to the clinic complaining of persistent chest tightness and intermittent dyspnea over the last two weeks. According to the patient, the symptoms worsen during physical exertion. The patient's sister noted a history of hypertension in the family. The patient is currently prescribed lisinopril 10mg daily but reports inconsistent adherence to the medication.
+
+Assessment and Plan:
+Physical examination reveals mild crackles at the bilateral lung bases. Heart rate is stable, but blood pressure is 145/92 mmHg. We will order an ECG and troponin levels to rule out acute myocardial ischemia. The insurer has been notified of the diagnostic requirements. We will follow up in one week to review the results and adjust the treatment regimen if necessary.

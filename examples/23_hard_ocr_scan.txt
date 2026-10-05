@@ -1,0 +1,8 @@
+ST. BRIGID C0MMUNITY HOSPlTAL - DISCHARGE SUMMARY
+Patient: Lavinia Ostrowski     DOB: O7/22/1958     MRN: 55l0-2287
+Admit 0ct 3 2024   Discharge 0ct 7 2024
+Attending: Dr. P. Vasquez-Hale
+Dx: community acquired pneumonia, RLL. CURB-65 score 2.
+Insurance: Meridian Health Plan ID MHP-4471-0092-Q
+Home: 88 Quarry Rd, Apt 3B, Dubuque IA 52001   Ph 563-555-0170
+Email for portal: l.ostrowski58@example.net

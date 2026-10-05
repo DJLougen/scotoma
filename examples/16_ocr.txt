@@ -1,0 +1,8 @@
+CLINICAL NOTE: ENCOUNTER SUMMARY
+PATIENT: Evan Perez
+MRN: M8613922
+SSN: 258-38-3470
+
+The patient presented to the clinic complaining of persistent chest pain and fatigue originating from Hutchinson. Upon physical examination, the patient exhibited mild dyspnea and a heart rate of 98 bpm. The patient currently resides at 9748 Netherby Row, 09025. We discussed the initiation of a new regimen involving 10mg lisinopril daily to manage the hypertension observed. The insurer has been notified of the treatment plan and the necessary diagnostic tests required.
+
+The patient was discharged in stable condition. It was noted that the patient arrived via personal vehicle, which is identified by the license plate TPV 7592. The attending physician is registered under license RN-0248890. Follow-up is scheduled in two weeks to monitor blood pressure and assess response to the medication.
