@@ -1,0 +1,846 @@
+{
+  "threshold": 0.35,
+  "docs": 7108,
+  "docs_with_leak": 495,
+  "overall": {
+    "gold": 58537,
+    "caught": 57998,
+    "full": 52010,
+    "gold_chars": 721987,
+    "covered_chars": 690984,
+    "predicted": 61578,
+    "predicted_correct": 60946
+  },
+  "by_category": {
+    "ACCOUNT": {
+      "gold": 3363,
+      "caught": 3356,
+      "full": 3289,
+      "gold_chars": 48654,
+      "covered_chars": 48026,
+      "predicted": 2530,
+      "predicted_correct": 2525
+    },
+    "ADDRESS": {
+      "gold": 1691,
+      "caught": 1691,
+      "full": 1691,
+      "gold_chars": 32298,
+      "covered_chars": 32297,
+      "predicted": 2363,
+      "predicted_correct": 2363
+    },
+    "AGE": {
+      "gold": 1466,
+      "caught": 1464,
+      "full": 0,
+      "gold_chars": 10465,
+      "covered_chars": 2208,
+      "predicted": 1464,
+      "predicted_correct": 1464
+    },
+    "BIOMETRIC": {
+      "gold": 0,
+      "caught": 0,
+      "full": 0,
+      "gold_chars": 0,
+      "covered_chars": 0,
+      "predicted": 275,
+      "predicted_correct": 264
+    },
+    "DATE": {
+      "gold": 5144,
+      "caught": 5144,
+      "full": 5144,
+      "gold_chars": 57592,
+      "covered_chars": 57592,
+      "predicted": 5425,
+      "predicted_correct": 5166
+    },
+    "DEVICE": {
+      "gold": 1752,
+      "caught": 1728,
+      "full": 1089,
+      "gold_chars": 23825,
+      "covered_chars": 22222,
+      "predicted": 103,
+      "predicted_correct": 103
+    },
+    "EMAIL": {
+      "gold": 1741,
+      "caught": 1741,
+      "full": 1741,
+      "gold_chars": 40164,
+      "covered_chars": 40164,
+      "predicted": 1741,
+      "predicted_correct": 1740
+    },
+    "FAX": {
+      "gold": 1593,
+      "caught": 1588,
+      "full": 1010,
+      "gold_chars": 23382,
+      "covered_chars": 20527,
+      "predicted": 1096,
+      "predicted_correct": 1096
+    },
+    "ID": {
+      "gold": 0,
+      "caught": 0,
+      "full": 0,
+      "gold_chars": 0,
+      "covered_chars": 0,
+      "predicted": 338,
+      "predicted_correct": 314
+    },
+    "IP": {
+      "gold": 1744,
+      "caught": 1744,
+      "full": 1273,
+      "gold_chars": 40724,
+      "covered_chars": 37743,
+      "predicted": 1960,
+      "predicted_correct": 1960
+    },
+    "LICENSE": {
+      "gold": 1573,
+      "caught": 1573,
+      "full": 1547,
+      "gold_chars": 16240,
+      "covered_chars": 16164,
+      "predicted": 3822,
+      "predicted_correct": 3719
+    },
+    "LOCATION": {
+      "gold": 1701,
+      "caught": 1695,
+      "full": 1695,
+      "gold_chars": 14098,
+      "covered_chars": 14060,
+      "predicted": 1785,
+      "predicted_correct": 1785
+    },
+    "MRN": {
+      "gold": 1614,
+      "caught": 1600,
+      "full": 1473,
+      "gold_chars": 15353,
+      "covered_chars": 14939,
+      "predicted": 2637,
+      "predicted_correct": 2478
+    },
+    "NAME": {
+      "gold": 23313,
+      "caught": 23247,
+      "full": 21032,
+      "gold_chars": 219552,
+      "covered_chars": 214267,
+      "predicted": 24953,
+      "predicted_correct": 24950
+    },
+    "PHONE": {
+      "gold": 1698,
+      "caught": 1453,
+      "full": 1288,
+      "gold_chars": 23789,
+      "covered_chars": 19826,
+      "predicted": 2172,
+      "predicted_correct": 2172
+    },
+    "PLAN": {
+      "gold": 1596,
+      "caught": 1596,
+      "full": 1594,
+      "gold_chars": 17551,
+      "covered_chars": 17492,
+      "predicted": 2051,
+      "predicted_correct": 1988
+    },
+    "SSN": {
+      "gold": 1663,
+      "caught": 1662,
+      "full": 1662,
+      "gold_chars": 16097,
+      "covered_chars": 16020,
+      "predicted": 943,
+      "predicted_correct": 943
+    },
+    "URL": {
+      "gold": 1632,
+      "caught": 1544,
+      "full": 1444,
+      "gold_chars": 71648,
+      "covered_chars": 68210,
+      "predicted": 1587,
+      "predicted_correct": 1587
+    },
+    "VEHICLE": {
+      "gold": 3531,
+      "caught": 3457,
+      "full": 3367,
+      "gold_chars": 33919,
+      "covered_chars": 32851,
+      "predicted": 2852,
+      "predicted_correct": 2848
+    },
+    "ZIP": {
+      "gold": 1722,
+      "caught": 1715,
+      "full": 1671,
+      "gold_chars": 16636,
+      "covered_chars": 16376,
+      "predicted": 1481,
+      "predicted_correct": 1481
+    }
+  },
+  "by_tag": {
+    "fmt:acct_dashed": {
+      "gold": 833,
+      "caught": 832,
+      "full": 826,
+      "gold_chars": 11662,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:acct_dot": {
+      "gold": 823,
+      "caught": 817,
+      "full": 800,
+      "gold_chars": 11522,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:acct_lbl": {
+      "gold": 831,
+      "caught": 831,
+      "full": 789,
+      "gold_chars": 14958,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:acct_spaced": {
+      "gold": 876,
+      "caught": 876,
+      "full": 874,
+      "gold_chars": 10512,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:age_year_old": {
+      "gold": 478,
+      "caught": 478,
+      "full": 0,
+      "gold_chars": 5392,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:age_yo": {
+      "gold": 497,
+      "caught": 497,
+      "full": 0,
+      "gold_chars": 2485,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:age_yrs": {
+      "gold": 491,
+      "caught": 489,
+      "full": 0,
+      "gold_chars": 2588,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:date_dot_eu": {
+      "gold": 997,
+      "caught": 997,
+      "full": 997,
+      "gold_chars": 9970,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:date_dot_us": {
+      "gold": 1014,
+      "caught": 1014,
+      "full": 1014,
+      "gold_chars": 10140,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:date_mon_dot": {
+      "gold": 988,
+      "caught": 988,
+      "full": 988,
+      "gold_chars": 10868,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:date_ord_named": {
+      "gold": 1062,
+      "caught": 1062,
+      "full": 1062,
+      "gold_chars": 15784,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:date_slash_iso": {
+      "gold": 1083,
+      "caught": 1083,
+      "full": 1083,
+      "gold_chars": 10830,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:dev_seg": {
+      "gold": 619,
+      "caught": 612,
+      "full": 601,
+      "gold_chars": 8047,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:dev_sn": {
+      "gold": 577,
+      "caught": 560,
+      "full": 418,
+      "gold_chars": 5770,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:dev_udi": {
+      "gold": 556,
+      "caught": 556,
+      "full": 70,
+      "gold_chars": 10008,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:em_dash": {
+      "gold": 451,
+      "caught": 451,
+      "full": 451,
+      "gold_chars": 10714,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:em_dot_sfx": {
+      "gold": 428,
+      "caught": 428,
+      "full": 428,
+      "gold_chars": 11492,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:em_rev_dot": {
+      "gold": 442,
+      "caught": 442,
+      "full": 442,
+      "gold_chars": 8564,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:em_us_tld": {
+      "gold": 420,
+      "caught": 420,
+      "full": 420,
+      "gold_chars": 9394,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:fax_compact": {
+      "gold": 521,
+      "caught": 518,
+      "full": 478,
+      "gold_chars": 6773,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:fax_intl_paren": {
+      "gold": 543,
+      "caught": 541,
+      "full": 532,
+      "gold_chars": 8145,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:fax_lbl": {
+      "gold": 529,
+      "caught": 529,
+      "full": 0,
+      "gold_chars": 8464,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:initial": {
+      "gold": 708,
+      "caught": 708,
+      "full": 48,
+      "gold_chars": 5801,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ipv4_port": {
+      "gold": 428,
+      "caught": 428,
+      "full": 380,
+      "gold_chars": 7801,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ipv6_full": {
+      "gold": 458,
+      "caught": 458,
+      "full": 458,
+      "gold_chars": 17862,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ipv6_link": {
+      "gold": 439,
+      "caught": 439,
+      "full": 435,
+      "gold_chars": 6585,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ipv6_mapped": {
+      "gold": 419,
+      "caught": 419,
+      "full": 0,
+      "gold_chars": 8476,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:last_first_caps": {
+      "gold": 1583,
+      "caught": 1566,
+      "full": 11,
+      "gold_chars": 20601,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:lic_hash": {
+      "gold": 527,
+      "caught": 527,
+      "full": 526,
+      "gold_chars": 6324,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:lic_md": {
+      "gold": 516,
+      "caught": 516,
+      "full": 516,
+      "gold_chars": 5676,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:lic_spaced": {
+      "gold": 530,
+      "caught": 530,
+      "full": 505,
+      "gold_chars": 4240,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:mrn_grouped": {
+      "gold": 394,
+      "caught": 394,
+      "full": 390,
+      "gold_chars": 3152,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:mrn_hash": {
+      "gold": 405,
+      "caught": 393,
+      "full": 275,
+      "gold_chars": 3645,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:mrn_lbl_space": {
+      "gold": 409,
+      "caught": 407,
+      "full": 402,
+      "gold_chars": 4090,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:mrn_mr_dash": {
+      "gold": 406,
+      "caught": 406,
+      "full": 406,
+      "gold_chars": 4466,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ph_compact_paren": {
+      "gold": 330,
+      "caught": 322,
+      "full": 227,
+      "gold_chars": 4290,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ph_ext": {
+      "gold": 351,
+      "caught": 351,
+      "full": 344,
+      "gold_chars": 5616,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ph_intl_paren": {
+      "gold": 345,
+      "caught": 345,
+      "full": 344,
+      "gold_chars": 5175,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ph_space4": {
+      "gold": 350,
+      "caught": 346,
+      "full": 340,
+      "gold_chars": 4200,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ph_tollfree": {
+      "gold": 322,
+      "caught": 89,
+      "full": 33,
+      "gold_chars": 4508,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:plan_alpha_mid": {
+      "gold": 395,
+      "caught": 395,
+      "full": 395,
+      "gold_chars": 4740,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:plan_alpha_pref": {
+      "gold": 404,
+      "caught": 404,
+      "full": 404,
+      "gold_chars": 4848,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:plan_digits11": {
+      "gold": 395,
+      "caught": 395,
+      "full": 395,
+      "gold_chars": 4345,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:plan_grouped": {
+      "gold": 402,
+      "caught": 402,
+      "full": 400,
+      "gold_chars": 3618,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ssn_dot": {
+      "gold": 565,
+      "caught": 565,
+      "full": 565,
+      "gold_chars": 6215,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ssn_plain": {
+      "gold": 527,
+      "caught": 527,
+      "full": 527,
+      "gold_chars": 4743,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:ssn_space": {
+      "gold": 571,
+      "caught": 570,
+      "full": 570,
+      "gold_chars": 5139,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:url_http": {
+      "gold": 405,
+      "caught": 405,
+      "full": 405,
+      "gold_chars": 18809,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:url_path": {
+      "gold": 408,
+      "caught": 408,
+      "full": 408,
+      "gold_chars": 19584,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:url_query": {
+      "gold": 432,
+      "caught": 432,
+      "full": 432,
+      "gold_chars": 22032,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:url_www": {
+      "gold": 387,
+      "caught": 299,
+      "full": 199,
+      "gold_chars": 11223,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:veh_dash": {
+      "gold": 892,
+      "caught": 862,
+      "full": 799,
+      "gold_chars": 7136,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:veh_mix": {
+      "gold": 909,
+      "caught": 897,
+      "full": 897,
+      "gold_chars": 6363,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:veh_state": {
+      "gold": 899,
+      "caught": 867,
+      "full": 840,
+      "gold_chars": 6293,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:veh_vin_jt": {
+      "gold": 831,
+      "caught": 831,
+      "full": 831,
+      "gold_chars": 14127,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:zip4_dash": {
+      "gold": 566,
+      "caught": 565,
+      "full": 559,
+      "gold_chars": 5660,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:zip4_space": {
+      "gold": 584,
+      "caught": 584,
+      "full": 584,
+      "gold_chars": 5256,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:zip9_slash": {
+      "gold": 572,
+      "caught": 566,
+      "full": 528,
+      "gold_chars": 5720,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "novel_format": {
+      "gold": 31832,
+      "caught": 31365,
+      "full": 27592,
+      "gold_chars": 456039,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "planted": {
+      "gold": 58537,
+      "caught": 57998,
+      "full": 52010,
+      "gold_chars": 721987,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "repeat": {
+      "gold": 10422,
+      "caught": 10360,
+      "full": 9871,
+      "gold_chars": 122321,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "single_name": {
+      "gold": 10061,
+      "caught": 10012,
+      "full": 10012,
+      "gold_chars": 61422,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    }
+  },
+  "by_domain": {
+    "clinical": {
+      "gold": 58537,
+      "caught": 57998,
+      "full": 52010,
+      "gold_chars": 721987,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    }
+  },
+  "by_mode": {
+    "chat": {
+      "gold": 7136,
+      "caught": 7074,
+      "full": 6326,
+      "gold_chars": 88888,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "dictated": {
+      "gold": 7483,
+      "caught": 7429,
+      "full": 6707,
+      "gold_chars": 92906,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "email": {
+      "gold": 7136,
+      "caught": 7080,
+      "full": 6394,
+      "gold_chars": 87092,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "form": {
+      "gold": 8037,
+      "caught": 7951,
+      "full": 7072,
+      "gold_chars": 99653,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "letter": {
+      "gold": 6581,
+      "caught": 6526,
+      "full": 5866,
+      "gold_chars": 80766,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "narrative": {
+      "gold": 7467,
+      "caught": 7421,
+      "full": 6724,
+      "gold_chars": 91896,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "notes": {
+      "gold": 7631,
+      "caught": 7519,
+      "full": 6625,
+      "gold_chars": 94022,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "ocr": {
+      "gold": 7066,
+      "caught": 6998,
+      "full": 6296,
+      "gold_chars": 86764,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    }
+  },
+  "misses": [],
+  "over_redaction": 0.001232093637693313,
+  "clean_chars": 2810663,
+  "ms_per_doc": 0.37155654698930785,
+  "chars_per_sec": 1583039.7986972278
+}

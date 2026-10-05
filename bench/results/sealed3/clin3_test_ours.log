@@ -1,0 +1,14 @@
+running ours ...
+running rules+ours ...
+# clin3_test.jsonl
+
+Recall = identifier touched by a redaction. Leak docs = documents with at least one identifier left untouched.
+
+Over-redaction = share of ordinary, non-identifier text that was redacted by mistake (a system that blacks out everything scores 100% recall).
+
+| system | recall | fully redacted | leak docs | over-redaction | precision | ms/doc |
+|---|---|---|---|---|---|---|
+| ours | 100.0 | 99.7 | 4/7108 (0.1%) | 0.1% | 99.2 | 37.8 |
+| rules+ours | 100.0 | 99.8 | 2/7108 (0.0%) | 0.2% | 99.2 | 36.4 |
+
+full tables: bench/results/sealed3/clin3_test_ours/results.md   item responses: bench/results/sealed3/clin3_test_ours/responses.csv (58404 items x 2 systems)

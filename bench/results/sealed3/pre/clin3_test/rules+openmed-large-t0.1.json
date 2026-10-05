@@ -1,0 +1,423 @@
+{
+  "threshold": 0.1,
+  "docs": 7108,
+  "docs_with_leak": 26,
+  "overall": {
+    "gold": 58404,
+    "caught": 58371,
+    "full": 58254,
+    "gold_chars": 698571,
+    "covered_chars": 696182,
+    "predicted": 60137,
+    "predicted_correct": 58695
+  },
+  "by_category": {
+    "ACCOUNT": {
+      "gold": 3363,
+      "caught": 3363,
+      "full": 3342,
+      "gold_chars": 46588,
+      "covered_chars": 45541,
+      "predicted": 1641,
+      "predicted_correct": 1628
+    },
+    "ADDRESS": {
+      "gold": 1691,
+      "caught": 1691,
+      "full": 1691,
+      "gold_chars": 32298,
+      "covered_chars": 32298,
+      "predicted": 1742,
+      "predicted_correct": 1730
+    },
+    "AGE": {
+      "gold": 1333,
+      "caught": 1332,
+      "full": 1332,
+      "gold_chars": 3126,
+      "covered_chars": 3124,
+      "predicted": 1377,
+      "predicted_correct": 1376
+    },
+    "BIOMETRIC": {
+      "gold": 0,
+      "caught": 0,
+      "full": 0,
+      "gold_chars": 0,
+      "covered_chars": 0,
+      "predicted": 376,
+      "predicted_correct": 369
+    },
+    "DATE": {
+      "gold": 5144,
+      "caught": 5144,
+      "full": 5144,
+      "gold_chars": 55051,
+      "covered_chars": 55051,
+      "predicted": 6363,
+      "predicted_correct": 5293
+    },
+    "DEVICE": {
+      "gold": 1752,
+      "caught": 1752,
+      "full": 1752,
+      "gold_chars": 20813,
+      "covered_chars": 20400,
+      "predicted": 788,
+      "predicted_correct": 785
+    },
+    "EMAIL": {
+      "gold": 1741,
+      "caught": 1741,
+      "full": 1736,
+      "gold_chars": 44859,
+      "covered_chars": 44692,
+      "predicted": 1764,
+      "predicted_correct": 1764
+    },
+    "FAX": {
+      "gold": 1593,
+      "caught": 1593,
+      "full": 1593,
+      "gold_chars": 19637,
+      "covered_chars": 19637,
+      "predicted": 329,
+      "predicted_correct": 329
+    },
+    "ID": {
+      "gold": 0,
+      "caught": 0,
+      "full": 0,
+      "gold_chars": 0,
+      "covered_chars": 0,
+      "predicted": 1751,
+      "predicted_correct": 1673
+    },
+    "IP": {
+      "gold": 1744,
+      "caught": 1744,
+      "full": 1744,
+      "gold_chars": 23882,
+      "covered_chars": 23882,
+      "predicted": 1744,
+      "predicted_correct": 1744
+    },
+    "LICENSE": {
+      "gold": 1573,
+      "caught": 1573,
+      "full": 1573,
+      "gold_chars": 20777,
+      "covered_chars": 20677,
+      "predicted": 2220,
+      "predicted_correct": 2159
+    },
+    "LOCATION": {
+      "gold": 1701,
+      "caught": 1700,
+      "full": 1700,
+      "gold_chars": 14098,
+      "covered_chars": 14090,
+      "predicted": 1968,
+      "predicted_correct": 1952
+    },
+    "MRN": {
+      "gold": 1614,
+      "caught": 1614,
+      "full": 1614,
+      "gold_chars": 13993,
+      "covered_chars": 13976,
+      "predicted": 2062,
+      "predicted_correct": 1965
+    },
+    "NAME": {
+      "gold": 23313,
+      "caught": 23287,
+      "full": 23216,
+      "gold_chars": 219552,
+      "covered_chars": 219238,
+      "predicted": 23008,
+      "predicted_correct": 22993
+    },
+    "PHONE": {
+      "gold": 1698,
+      "caught": 1698,
+      "full": 1698,
+      "gold_chars": 20485,
+      "covered_chars": 20485,
+      "predicted": 2981,
+      "predicted_correct": 2981
+    },
+    "PLAN": {
+      "gold": 1596,
+      "caught": 1596,
+      "full": 1595,
+      "gold_chars": 22559,
+      "covered_chars": 22381,
+      "predicted": 1794,
+      "predicted_correct": 1734
+    },
+    "SSN": {
+      "gold": 1663,
+      "caught": 1663,
+      "full": 1663,
+      "gold_chars": 17873,
+      "covered_chars": 17873,
+      "predicted": 1545,
+      "predicted_correct": 1545
+    },
+    "URL": {
+      "gold": 1632,
+      "caught": 1632,
+      "full": 1632,
+      "gold_chars": 71913,
+      "covered_chars": 71913,
+      "predicted": 1634,
+      "predicted_correct": 1632
+    },
+    "VEHICLE": {
+      "gold": 3531,
+      "caught": 3527,
+      "full": 3508,
+      "gold_chars": 42457,
+      "covered_chars": 42319,
+      "predicted": 3420,
+      "predicted_correct": 3413
+    },
+    "ZIP": {
+      "gold": 1722,
+      "caught": 1721,
+      "full": 1721,
+      "gold_chars": 8610,
+      "covered_chars": 8605,
+      "predicted": 1630,
+      "predicted_correct": 1630
+    }
+  },
+  "by_tag": {
+    "fmt:dash": {
+      "gold": 1000,
+      "caught": 1000,
+      "full": 1000,
+      "gold_chars": 12000,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:dot": {
+      "gold": 1058,
+      "caught": 1058,
+      "full": 1058,
+      "gold_chars": 12696,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:initial": {
+      "gold": 708,
+      "caught": 708,
+      "full": 651,
+      "gold_chars": 5801,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:iso": {
+      "gold": 806,
+      "caught": 806,
+      "full": 806,
+      "gold_chars": 8060,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:last_first_caps": {
+      "gold": 1583,
+      "caught": 1583,
+      "full": 1569,
+      "gold_chars": 20601,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:named": {
+      "gold": 813,
+      "caught": 813,
+      "full": 813,
+      "gold_chars": 10474,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:named_abbr": {
+      "gold": 844,
+      "caught": 844,
+      "full": 844,
+      "gold_chars": 8175,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:numeric_short": {
+      "gold": 821,
+      "caught": 821,
+      "full": 821,
+      "gold_chars": 5665,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:numeric_us": {
+      "gold": 803,
+      "caught": 803,
+      "full": 803,
+      "gold_chars": 8030,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:paren": {
+      "gold": 1032,
+      "caught": 1032,
+      "full": 1032,
+      "gold_chars": 13416,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "fmt:partial": {
+      "gold": 462,
+      "caught": 462,
+      "full": 462,
+      "gold_chars": 3665,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "planted": {
+      "gold": 58404,
+      "caught": 58371,
+      "full": 58254,
+      "gold_chars": 698571,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "repeat": {
+      "gold": 10394,
+      "caught": 10382,
+      "full": 10374,
+      "gold_chars": 119034,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "single_name": {
+      "gold": 10061,
+      "caught": 10035,
+      "full": 10035,
+      "gold_chars": 61422,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "spoken": {
+      "gold": 2358,
+      "caught": 2358,
+      "full": 2353,
+      "gold_chars": 34243,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    }
+  },
+  "by_domain": {
+    "clinical": {
+      "gold": 58404,
+      "caught": 58371,
+      "full": 58254,
+      "gold_chars": 698571,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    }
+  },
+  "by_mode": {
+    "chat": {
+      "gold": 7123,
+      "caught": 7114,
+      "full": 7094,
+      "gold_chars": 85766,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "dictated": {
+      "gold": 7461,
+      "caught": 7461,
+      "full": 7453,
+      "gold_chars": 90199,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "email": {
+      "gold": 7117,
+      "caught": 7114,
+      "full": 7108,
+      "gold_chars": 84088,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "form": {
+      "gold": 8020,
+      "caught": 8018,
+      "full": 8008,
+      "gold_chars": 96603,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "letter": {
+      "gold": 6572,
+      "caught": 6569,
+      "full": 6560,
+      "gold_chars": 77896,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "narrative": {
+      "gold": 7451,
+      "caught": 7449,
+      "full": 7444,
+      "gold_chars": 89741,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "notes": {
+      "gold": 7608,
+      "caught": 7598,
+      "full": 7552,
+      "gold_chars": 90462,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    },
+    "ocr": {
+      "gold": 7052,
+      "caught": 7048,
+      "full": 7035,
+      "gold_chars": 83816,
+      "covered_chars": 0,
+      "predicted": 0,
+      "predicted_correct": 0
+    }
+  },
+  "misses": [],
+  "over_redaction": 0.00485899590239029,
+  "clean_chars": 2810663,
+  "ms_per_doc": 764.6579548566405,
+  "chars_per_sec": 766.3882887732252
+}
