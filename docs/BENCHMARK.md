@@ -4,10 +4,9 @@ How Scotoma is measured, every number we publish, and how to reproduce each one.
 All raw artefacts live in [`bench/results/`](../bench/results/); every table here
 says which file it was copied from.
 
-**Status note (2026-10-05):** a third, powered sealed evaluation is running now
-(sealed 3, 7,108 notes per set, model `v2-small`). Every number that is still
-pending is written as a `{{SEALED3: …}}` placeholder. The newest *final* numbers
-are sealed 2 (860 notes per set, model `v1-small`), in the second table below.
+Sealed 3 (7,108 notes per set, model `v2-small`) is final as of 2026-10-05 and
+is the headline result; sealed 2 (860 notes per set, model `v1-small`) remains
+below as the full field comparison.
 
 ## TL;DR
 
@@ -16,10 +15,15 @@ are sealed 2 (860 notes per set, model `v1-small`), in the second table below.
 - Constraint: **over-redaction ≤ 1 %** — the share of ordinary text redacted by
   mistake. A system that blacks out everything has perfect recall, so we never
   report leak rate without it.
-- Sealed 2 (final): our shipped configuration leaked **0.2 %** of notes on both
-  sets — the fewest of every system tested, statistically tied with
-  OpenMed-PII-SuperClinical-Large (fp32, + our rules) at its best threshold,
-  at about **12× lower CPU latency**.
+- Sealed 3 (final): our shipped configuration (`v2-small` + rules) leaked
+  **2 of 7,108 notes (0.03 %)** vs 26 (0.37 %) for rules +
+  OpenMed-PII-SuperClinical-Large (fp32) at its best pre-registered threshold —
+  a **significant win** (exact McNemar p = 8.0 × 10⁻⁷) at about **1/20 the CPU
+  compute** (~20 ms vs ~240 ms per note on a laptop).
+- Sealed 2 (final): our then-shipped configuration leaked **0.2 %** of notes on
+  both sets — the fewest of every system tested, statistically tied with
+  OpenMed-large (fp32, + our rules) at its best threshold, at about **12× lower
+  CPU latency**.
 - All test text is **synthetic** (LLM-written notes with planted fake
   identifiers). Nothing here is a claim about real clinical text yet — see
   [Limits](#limits).
@@ -143,34 +147,69 @@ familiar set, and on the novel set beats @0.35 and ties @0.10.
 Precision of rules+ours-v1 is 99.7 %; rules+OpenMed-large @0.10 is
 97.5–97.7 %.
 
-## Sealed 3 — in progress (7,108 notes per set, model `v2-small`)
+## Sealed 3 — final (7,108 notes per set, model `v2-small`, int8 @ 0.02)
 
-Protocol: [SEALED3_PREREG.md](../bench/results/SEALED3_PREREG.md) (committed
-before any clin3 scoring); log: [SEALED3_LOG.md](../bench/results/SEALED3_LOG.md).
+Sources: [SEALED3_RESULTS.md](../bench/results/SEALED3_RESULTS.md), raw tables
+under [sealed3/](../bench/results/sealed3/) (`clin3_test_ours/`,
+`clin3_test_oml/`, `clin3_novel_all/`, `pre/`); merged item matrices
+`sealed3/clin3_*_all_responses.csv`. Protocol:
+[SEALED3_PREREG.md](../bench/results/SEALED3_PREREG.md) (committed before any
+clin3 scoring); log: [SEALED3_LOG.md](../bench/results/SEALED3_LOG.md).
 
 - Sets: `clin3_test.jsonl` (familiar formats) and `clin3_novel.jsonl`
   (test-only formats), 7,108 accepted notes each — sized by the power
   simulation in the pre-registration so a real difference from OpenMed-large
-  can be detected.
+  could be detected.
 - Model: `models/v2-small` (per-channel int8, sha256
   `33be24386b0bbdb2758a86087140f7a4a93bd21923a85fe20085bf611ba87e41`),
   selected over v1-small by the pre-registered dev rule (2 vs 6 total leak
   docs on clin2 dev + novel dev, over-redaction 0.2 %).
-- Primary test: exact two-sided McNemar, rules+ours vs
-  rules+OpenMed-large @0.10, on the familiar set.
 
-| question | result |
-|---|---|
-| rules+v2 vs rules+OpenMed-large @0.10, familiar (primary) | {{SEALED3: McNemar p-value, discordant counts, leak %, verdict}} |
-| rules+v2 leak / over-red, familiar | {{SEALED3: leak docs and over-redaction %, familiar set}} |
-| rules+v2 vs rules+OpenMed-large @0.10, novel (secondary) | {{SEALED3: McNemar p-value and leak %, novel set}} |
-| rules+v2 vs rules+OpenMed-large @0.35, both sets (secondary) | {{SEALED3: McNemar p-values, both sets}} |
-| v2 alone vs OpenMed-large alone @0.10, both sets (secondary) | {{SEALED3: McNemar p-values, both sets}} |
-| OpenMed-large CPU latency | {{SEALED3: ms/note on the run machine}} |
+### Primary (one pre-registered test)
 
-Already final (secondary, novel set): on the 7,108 novel-format notes, v2
-alone leaked 3 notes and rules+v2 leaked 1 note
-{{SEALED3: confirm against sealed3 clin3_novel results.md and keep/remove}}.
+On `clin3_test`, rules+ours vs rules+OpenMed-large (fp32) @0.10:
+
+| | notes with a leak | over-redaction |
+|---|---|---|
+| **rules + ours (v2-small, int8 @0.02)** | **2 / 7,108 (0.03 %)** | 0.2 % |
+| rules + OpenMed-large @0.10 | 26 / 7,108 (0.37 %) | 0.5 % |
+
+Discordant notes: only ours leaked on 1, only OpenMed-large leaked on 25, both
+leaked on 1. **Exact McNemar two-sided p = 8.0 × 10⁻⁷.** Paired bootstrap of
+the leak-rate difference: +0.3 pp, 95 % CI [+0.2, +0.5]. Over-redaction within
+the 1 % constraint. **Verdict: significant win.**
+
+### Secondary (no multiplicity correction claimed)
+
+| set | comparison | ours | OpenMed-large | exact McNemar p |
+|---|---|---|---|---|
+| clin3_test | rules+ours vs rules+OML @0.35 | 2 (0.03 %) | 101 (1.4 %) | 8.0 × 10⁻²⁹ |
+| clin3_test | ours alone vs OML alone @0.10 | 4 (0.06 %) | 407 (5.7 %) | 5.0 × 10⁻¹¹⁸ |
+| clin3_test | ours alone vs OML alone @0.35 | 4 (0.06 %) | 680 (9.6 %) | 9.2 × 10⁻²⁰⁰ |
+| clin3_novel | rules+ours vs rules+OML @0.10 | 1 (0.01 %) | 33 (0.46 %) | 4.7 × 10⁻¹⁰ |
+| clin3_novel | rules+ours vs rules+OML @0.35 | 1 (0.01 %) | 140 (2.0 %) | 2.9 × 10⁻⁴² |
+| clin3_novel | ours alone vs OML alone @0.10 | 3 (0.04 %) | 210 (3.0 %) | 1.4 × 10⁻⁵⁹ |
+| clin3_novel | ours alone vs OML alone @0.35 | 3 (0.04 %) | 495 (7.0 %) | 1.2 × 10⁻¹⁴⁴ |
+
+Over-redaction: ours 0.1 % alone and 0.2 % with rules on both sets;
+OpenMed-large 0.1–0.3 % alone and 0.3–0.5 % with rules.
+
+### Compute (same 7,108 notes)
+
+- Ours: about 26 CPU-minutes on a 20-core ARM Linux workstation (2 threads,
+  about 13 min wall, both configs in one pass); about 20 ms/note on an M3 Max.
+- OpenMed-large (fp32): about 500 CPU-minutes per set on the same workstation
+  (9 threads, about 1 h 50 min wall); about 240 ms/note on an M3 Max.
+- Per note: **about 0.2 vs about 4 CPU-seconds — roughly 18–20× less compute.**
+- Mixed machines: `clin3_test` "ours" ran on the Mac, everything else on the
+  workstation (same source commit, same model files by sha256; dev parity
+  between the machines was exact — `SEALED3_LOG.md`).
+
+### Caveat on scope
+
+Only OpenMed-large was in this powered run (it was the closest competitor on
+sealed 2). The full-field comparison remains the 860-note sealed-2 table
+below, where we won significantly against every other tested system.
 
 ## Sealed 1 — final (874 notes per set, model `scotoma-v0`, int8 @0.02)
 
@@ -189,7 +228,8 @@ Verdict: OpenMed-large @0.10 + rules beat us significantly on both sets
 about 12× slower on CPU (~245 ms/note vs ~20). Our wins over every other
 competitor in the sealed-2 table already held in sealed 1 (full tables in
 `sealed/*/results.md`). Sealed 1 is why v1 exists; sealed 2 closed the gap to
-a tie; sealed 3 is powered to resolve it.
+a tie; sealed 3 resolved it (significant win, above) — against OpenMed-large
+only.
 
 ## Dev-tier numbers (unsealed, used for iteration)
 

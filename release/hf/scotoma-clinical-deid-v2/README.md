@@ -191,20 +191,28 @@ training-data work.
 
 A powered re-match vs rules+OpenMed-large@0.1, pre-registered before scoring
 (exact two-sided McNemar on per-note leak indicators, α = 0.05; secondary tests
-listed in `SEALED3_PREREG.md`). Running now — these cells are placeholders:
+listed in `SEALED3_PREREG.md`). Final, 2026-10-05:
 
 | system | familiar formats (clin3) | novel formats (clin3_novel) |
 |---|---|---|
-| v2-small alone | {{SEALED3: ours-alone leak rate on clin3}} | 3 leaked notes ≈ 0.04% *(secondary, final)* |
-| rules + v2-small | {{SEALED3: rules+ours leak rate on clin3}} | 1 leaked note ≈ 0.01% *(secondary, final)* |
-| OpenMed-large @0.1 alone | {{SEALED3: openmed-alone @0.1 leak rate on clin3}} | {{SEALED3: openmed-alone @0.1 leak rate on clin3_novel}} |
-| rules + OpenMed-large @0.1 | {{SEALED3: rules+openmed @0.1 leak rate on clin3}} | {{SEALED3: rules+openmed @0.1 leak rate on clin3_novel}} |
-| OpenMed-large @0.35 (secondary) | {{SEALED3: @0.35 rows, clin3}} | {{SEALED3: @0.35 rows, clin3_novel}} |
+| v2-small alone | 4 leaked notes (0.06%) | 3 leaked notes (0.04%) |
+| rules + v2-small | **2 leaked notes (0.03%)** | **1 leaked note (0.01%)** |
+| OpenMed-large @0.1 alone | 407 leaked notes (5.7%) | 210 leaked notes (3.0%) |
+| rules + OpenMed-large @0.1 | 26 leaked notes (0.37%) | 33 leaked notes (0.46%) |
+| OpenMed-large @0.35 alone (secondary) | 680 leaked notes (9.6%) | 495 leaked notes (7.0%) |
+| rules + OpenMed-large @0.35 (secondary) | 101 leaked notes (1.4%) | 140 leaked notes (2.0%) |
 
-- Primary verdict: {{SEALED3: McNemar p and direction, rules+v2 vs rules+OpenMed@0.1 on clin3}}
-- Bootstrap CI of the difference: {{SEALED3: paired bootstrap 95% CI}}
-- Over-redaction (must be ≤ 1%): {{SEALED3: over-redaction for v2 arms}}
-- ms/note: {{SEALED3: latency note — some runs off-Mac, not comparable}}
+- Primary verdict: **significant win** — rules+v2 vs rules+OpenMed-large@0.1 on
+  clin3, discordant notes 1 vs 25 (both leaked on 1), exact two-sided McNemar
+  p = 8.0 × 10⁻⁷. All secondary comparisons are also significant wins
+  (p ≤ 8.0 × 10⁻²⁹).
+- Bootstrap CI of the difference: +0.3 percentage points, 95% CI [+0.2, +0.5].
+- Over-redaction (must be ≤ 1%): ours 0.1% alone, 0.2% with rules;
+  OpenMed-large 0.1–0.3% alone, 0.3–0.5% with rules.
+- Latency: ~20 ms/note for v2-small vs ~240 ms/note for OpenMed-large on an
+  M3 Max CPU; per-note CPU cost measured on a 20-core ARM Linux workstation
+  was ~0.2 s vs ~4 s (some sealed-3 runs ran off-Mac at the same commit and
+  sha256, with exact dev parity — see `SEALED3_LOG.md`).
 
 Pre-registered dev-set selection (clin2_dev + clin2_novel_dev, rules + model
 @0.02): v1-small leaked 6 notes total (4 + 2), v2-small leaked 2 (2 + 0) with

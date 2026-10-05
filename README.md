@@ -18,7 +18,23 @@ pre-registration, metric = share of notes with ≥1 identifier left untouched (l
 constraint = over-redaction ≤ 1 %. Full tables, method, verdicts and reproduction commands:
 [docs/BENCHMARK.md](docs/BENCHMARK.md) · raw files [bench/results/](bench/results/).
 
-Sealed 2, 860 notes per set, 2026-10-05 ([SEALED2_RESULTS.md](bench/results/SEALED2_RESULTS.md)):
+Sealed 3, 7,108 notes per set, 2026-10-05 — the powered head-to-head against the strongest
+open model, pre-registered before scoring ([SEALED3_RESULTS.md](bench/results/SEALED3_RESULTS.md)):
+
+| system (clin3, familiar formats) | notes with a leak | over-redaction | ms/note (CPU) |
+|---|---|---|---|
+| **rules + Scotoma v2-small** (int8 @0.02) | **2 / 7,108 (0.03 %)** | 0.2 % | ~20 |
+| rules + OpenMed-PII-SuperClinical-Large-434M (fp32) @0.10 | 26 / 7,108 (0.37 %) | 0.5 % | ~240 |
+
+**Significant win**: exact two-sided McNemar p = 8.0 × 10⁻⁷ (discordant notes 1 vs 25),
+bootstrap difference +0.3 pp [+0.2, +0.5]. On unseen identifier formats (clin3_novel):
+1 leaked note (0.01 %) vs 33 (0.46 %), p = 4.7 × 10⁻¹⁰. Every secondary comparison is also a
+win (p ≤ 8.0 × 10⁻²⁹). Per-note compute: ~0.2 vs ~4 CPU-seconds — roughly 1/20.
+Caveats: only OpenMed-large was in this powered run; the full field is below; all notes are
+synthetic.
+
+The full field — sealed 2, 860 notes per set, 2026-10-05, model v1-small
+([SEALED2_RESULTS.md](bench/results/SEALED2_RESULTS.md)):
 
 | system | model alone, familiar | model alone, novel formats | + our rules, familiar | + our rules, novel | ms/note (CPU) |
 |---|---|---|---|---|---|
@@ -33,11 +49,9 @@ Sealed 2, 860 notes per set, 2026-10-05 ([SEALED2_RESULTS.md](bench/results/SEAL
 | rules only | 95.9 % | 96.9 % | — | — | 0.1 |
 
 Verdicts (paired bootstrap 95 % CI): significant wins over every competitor except
-OpenMed-large @0.10 + rules — a statistical tie (2 vs 5 leaked notes; the sealed-3 run now in
-progress is powered to resolve it), and OpenMed-small @0.02 + rules on familiar formats (tie).
-Ours is ~12× faster on CPU than OpenMed-large. The currently bundled model is **v2-small**
-(sha256 `33be2438…87e41`); its sealed-3 numbers are pending: **{{SEALED3: headline leak %,
-familiar and novel, rules+v2}}**.
+OpenMed-large @0.10 + rules — then a statistical tie (2 vs 5 leaked notes), since resolved by
+the powered sealed-3 win above — and OpenMed-small @0.02 + rules on familiar formats (tie).
+The currently bundled model is **v2-small** (sha256 `33be2438…87e41`).
 
 Honest history: in sealed 1 the same OpenMed-large configuration **beat** our v0 model (0.5 %
 vs 1.9 % / 1.7 %). [Details](docs/BENCHMARK.md#sealed-1--final-874-notes-per-set-model-scotoma-v0-int8-002).
@@ -171,6 +185,8 @@ bench/results/ every scorecard, pre-registration, and run log
   LLM-written. A real-clinical-text benchmark (i2b2/n2c2) has not been run yet.
 - Familiar-format test sets share identifier *formats* with our training-family generator code
   (values are disjoint); the novel-format sets exist to control for this.
+- The powered sealed-3 win is against **one competitor** (OpenMed-large, the closest on
+  sealed 2); the other 12 systems were compared on the smaller sealed-2 sets.
 - macOS is the tested platform (hotkeys, capture, OCR, dictation). The Rust core and CLI build
   on Linux; the overlay helper is macOS-only. Windows untested.
 - Known false positives exist — e.g. the eponym "Babinski sign" can be flagged as a name.
