@@ -1,0 +1,38 @@
+{
+  "generator": "train/mix.py",
+  "seed": 0,
+  "total": 92273,
+  "sources": [
+    {
+      "name": "planted",
+      "path": "/content/scotoma/bench/data/train_planted_all.jsonl",
+      "sha256": "c6323c6de447d50243c7ccb58da1148bc7633c566998e96ae2f59f0b7161c2db",
+      "records": 12273,
+      "taken": 12273,
+      "ratio": 0.1330074886478168,
+      "generator_models": [
+        "qwen3-14b"
+      ]
+    },
+    {
+      "name": "nemo",
+      "path": "/content/scotoma/bench/data/nemo_train.jsonl",
+      "sha256": "d14dceb839523a20ad665f5e009218054ecc9b870c7096a11eadaa5c26b995fd",
+      "records": 50000,
+      "taken": 50000,
+      "ratio": 0.5418703195951144,
+      "generator_models": []
+    },
+    {
+      "name": "tpl",
+      "path": "/content/scotoma/bench/data/train_tpl.jsonl",
+      "sha256": "d55b92273e9002fa02b623e8b29369d01c52858db5f75ede05d18d31423c537a",
+      "records": 30000,
+      "taken": 30000,
+      "ratio": 0.3251221917570687,
+      "generator_models": []
+    }
+  ],
+  "out": "/content/scotoma/bench/data/train_v2.jsonl",
+  "out_sha256": "717d9bbe4f3a9457c502aef096993cfffdf236e3ae04997593d79a1497d24299"
+}

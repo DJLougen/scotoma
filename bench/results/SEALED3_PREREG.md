@@ -49,3 +49,20 @@ Fixed before scoring by this rule. Candidates are `v1-small` (`SEALED2_PREREG.md
 `clin2_dev` + `clin2_novel_dev` with rules at threshold 0.02, it leaks strictly fewer notes than v1-small, with
 over-redaction ≤ 0.5% on both. Otherwise use v1-small. The choice and the model's sha256 are appended here, and
 committed, before the sealed run.
+
+## Selection of "ours" (done before any clin3 scoring)
+
+`bench/data/clin3_*` was downloaded and only line-counted: 7,108 accepted notes in each of `clin3_test.jsonl` and
+`clin3_novel.jsonl`. No system has been run on them.
+
+Selection rule on clin2_dev + clin2_novel_dev, rules + model at threshold 0.02 (leak docs / over-redaction):
+
+| model | clin2_dev | clin2_novel_dev | total leaks |
+|---|---|---|---|
+| v1-small | 4 / 0.2% | 2 / 0.2% | 6 |
+| v2-small | 2 / 0.2% | 0 / 0.2% | 2 |
+
+v2-small leaks strictly fewer notes and its over-redaction is ≤ 0.5%, so **ours = v2-small** at threshold 0.02 + rules.
+
+`models/v2-small/model_quantized.onnx` sha256 `33be24386b0bbdb2758a86087140f7a4a93bd21923a85fe20085bf611ba87e41`. Training mix: `train_v2.manifest.json` (v0 data plus 12,273
+Qwen3-written planted notes).
