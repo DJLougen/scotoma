@@ -68,6 +68,7 @@ def main():
             n_items = max(reports[n][key].get(k, {}).get("gold", 0) for n in names)
             if n_items: L.append(f"| {k} | {n_items} | " + " | ".join(pct(reports[n][key].get(k)) for n in names) + " |")
     open(os.path.join(a.out, "results.md"), "w").write("\n".join(L) + "\n")
+    json.dump(reports, open(os.path.join(a.out, "reports.json"), "w"))   # raw metrics for bench/battery.py
     items = sorted(set().union(*[set(v) for v in resp.values()]))
     with open(os.path.join(a.out, "responses.csv"), "w", newline="") as f:
         w = csv.writer(f); w.writerow(["item"] + names)

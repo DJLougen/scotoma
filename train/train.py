@@ -98,7 +98,7 @@ def evaluate(model, loader, device):
     return r, p, f2
 
 
-def export(model, tok, out, name, max_len, quantize=True):
+def export(model, tok, out, name, max_len, quantize=True, per_channel=True, threshold=None, domain=None):
     """Write model.onnx (+ int8 copy), tokenizer.json and config.json, then check the ONNX output."""
     import onnxruntime as ort
     model = model.cpu().eval()
@@ -126,7 +126,7 @@ def export(model, tok, out, name, max_len, quantize=True):
     if quantize:
         from onnxruntime.quantization import QuantType, quantize_dynamic
         qpath = os.path.join(out, "model_quantized.onnx")
-        quantize_dynamic(path, qpath, weight_type=QuantType.QInt8)
+        quantize_dynamic(path, qpath, weight_type=QuantType.QInt8, per_channel=per_channel)
         q = ort.InferenceSession(qpath, providers=["CPUExecutionProvider"]).run(None, {"input_ids": ids.numpy(), "attention_mask": mask.numpy()})[0]
         agree = float((q.argmax(-1) == ref.argmax(-1)).mean())
         print(f"int8: {os.path.getsize(qpath)/1e6:.1f} MB (fp32 {os.path.getsize(path)/1e6:.1f} MB), label agreement on probe {agree:.2f}")
@@ -136,6 +136,8 @@ def export(model, tok, out, name, max_len, quantize=True):
     tok.backend_tokenizer.save(os.path.join(out, "tokenizer.json"))
     cfg = {"_name_or_path": name, "id2label": {str(i): l for i, l in enumerate(LABELS)},
            "max_position_embeddings": int(getattr(model.config, "max_position_embeddings", 512)), "scotoma_max_len": max_len}
+    if threshold is not None: cfg["scotoma_threshold"] = threshold
+    if domain: cfg["scotoma_domain"] = domain
     json.dump(cfg, open(os.path.join(out, "config.json"), "w"), indent=1)
 
 
@@ -156,10 +158,17 @@ def main():
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-quantize", action="store_true")
+    ap.add_argument("--steps", type=int, default=None, help="cap optimisation steps (stops epochs early; for quick format-ingest fine-tunes)")
+    ap.add_argument("--device", choices=["cuda", "mps", "cpu"], default=None, help="default: cuda > mps > cpu")
+    ap.add_argument("--no-per-channel", dest="per_channel", action="store_false",
+                    help="quantize weights per-tensor instead of per-channel (per-channel is the default)")
+    ap.add_argument("--threshold", type=float, default=None,
+                    help="write scotoma_threshold into config.json: the default redaction threshold the app/CLI adopt")
+    ap.add_argument("--domain", default=None, help="write scotoma_domain into config.json (e.g. clinical)")
     a = ap.parse_args()
     random.seed(a.seed); torch.manual_seed(a.seed)
     os.makedirs(a.out, exist_ok=True)
-    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+    device = a.device or ("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
     train_docs, dev_docs = read(a.train, a.limit), read(a.dev, 2000)
     from transformers import AutoConfig, AutoModelForTokenClassification, AutoTokenizer, BertConfig, BertForTokenClassification, get_linear_schedule_with_warmup
@@ -186,13 +195,14 @@ def main():
 
     model.to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.01)
-    steps = len(tl) * a.epochs
+    steps = min(len(tl) * a.epochs, a.steps) if a.steps else len(tl) * a.epochs
     sched = get_linear_schedule_with_warmup(opt, int(0.06 * steps), steps)
     w = torch.ones(len(LABELS), device=device); w[0] = a.o_weight
     loss_fn = torch.nn.CrossEntropyLoss(weight=w, ignore_index=-100)
     amp = device == "cuda"
     scaler = torch.amp.GradScaler("cuda", enabled=amp)
     best, best_state = -1.0, None
+    opt_steps, stop = 0, False
     for ep in range(a.epochs):
         model.train(); tot = 0.0; t0 = time.time()
         for i, (ids, mask, lab) in enumerate(tl):
@@ -206,15 +216,18 @@ def main():
             scale = scaler.get_scale()
             scaler.step(opt); scaler.update()
             if scaler.get_scale() >= scale: sched.step()   # GradScaler skips opt.step() on overflow (and lowers the scale); keep the LR schedule in step
-            tot += loss.item()
-            if (i + 1) % 200 == 0: print(f"  ep {ep+1} step {i+1}/{len(tl)} loss {tot/(i+1):.4f}")
+            tot += loss.item(); opt_steps += 1
+            if opt_steps % 50 == 0 or opt_steps == 1: print(f"  ep {ep+1} step {opt_steps}{f'/{a.steps}' if a.steps else ''} loss {tot/(i+1):.4f}", flush=True)
+            if a.steps and opt_steps >= a.steps: stop = True; break
         r, p, f2 = evaluate(model, dl, device)
         print(f"epoch {ep+1}: loss {tot/len(tl):.4f}  dev token recall {r:.4f} precision {p:.4f} F2 {f2:.4f}  ({time.time()-t0:.0f}s)")
         if f2 > best:
             best, best_state = f2, {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+        if stop: break
     model.load_state_dict(best_state)
     model.save_pretrained(os.path.join(a.out, "hf")); tok.save_pretrained(os.path.join(a.out, "hf"))
-    export(model, tok, a.out, name, max_len, quantize=not a.no_quantize)
+    export(model, tok, a.out, name, max_len, quantize=not a.no_quantize,
+           per_channel=a.per_channel, threshold=a.threshold, domain=a.domain)
     print(f"done. app-loadable model in {a.out}  (best dev F2 {best:.4f})")
 
 

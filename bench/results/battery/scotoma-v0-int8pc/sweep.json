@@ -1,0 +1,98 @@
+[
+ {
+  "chars": 0.9924793388429752,
+  "clean_chars": 339298,
+  "full": 0.9801882815793171,
+  "gold_chars": 84700,
+  "leak_docs": 16,
+  "model_default": true,
+  "over_redaction": 0.0028441075396848786,
+  "precision": 0.9943601450248423,
+  "recall": 0.9977518617394969,
+  "threshold": 0.019999999552965164
+ },
+ {
+  "chars": 0.9887131050767415,
+  "clean_chars": 339298,
+  "full": 0.973443866797808,
+  "gold_chars": 84700,
+  "leak_docs": 31,
+  "model_default": false,
+  "over_redaction": 0.0022222353211631073,
+  "precision": 0.9974219810040705,
+  "recall": 0.9950821975551496,
+  "threshold": 0.05000000074505806
+ },
+ {
+  "chars": 0.9856788665879574,
+  "clean_chars": 339298,
+  "full": 0.9676830125052691,
+  "gold_chars": 84700,
+  "leak_docs": 52,
+  "model_default": false,
+  "over_redaction": 0.0020247687873197013,
+  "precision": 0.9980863860032805,
+  "recall": 0.991991007446958,
+  "threshold": 0.10000000149011612
+ },
+ {
+  "chars": 0.9805194805194806,
+  "clean_chars": 339298,
+  "full": 0.9591119853871013,
+  "gold_chars": 84700,
+  "leak_docs": 82,
+  "model_default": false,
+  "over_redaction": 0.0019245618895484206,
+  "precision": 0.9982103524229075,
+  "recall": 0.9872137136433891,
+  "threshold": 0.20000000298023224
+ },
+ {
+  "chars": 0.9727508854781582,
+  "clean_chars": 339298,
+  "full": 0.948433328649712,
+  "gold_chars": 84700,
+  "leak_docs": 118,
+  "model_default": false,
+  "over_redaction": 0.0018420385619720718,
+  "precision": 0.9986114968064427,
+  "recall": 0.9806098075031614,
+  "threshold": 0.3499999940395355
+ },
+ {
+  "chars": 0.9646399055489965,
+  "clean_chars": 339298,
+  "full": 0.9395812842489814,
+  "gold_chars": 84700,
+  "leak_docs": 161,
+  "model_default": false,
+  "over_redaction": 0.0017447789258999463,
+  "precision": 0.9994392261320623,
+  "recall": 0.973443866797808,
+  "threshold": 0.5
+ },
+ {
+  "chars": 0.9515230224321133,
+  "clean_chars": 339298,
+  "full": 0.9277785583813405,
+  "gold_chars": 84700,
+  "leak_docs": 210,
+  "model_default": false,
+  "over_redaction": 0.0017005700004126165,
+  "precision": 0.9997148966500357,
+  "recall": 0.9623436841365745,
+  "threshold": 0.699999988079071
+ },
+ {
+  "chars": 0.924887839433294,
+  "clean_chars": 339298,
+  "full": 0.9038920893634959,
+  "gold_chars": 84700,
+  "leak_docs": 329,
+  "model_default": false,
+  "over_redaction": 0.0016534138132261317,
+  "precision": 1.0,
+  "recall": 0.9360685682169454,
+  "threshold": 0.8999999761581421
+ }
+]

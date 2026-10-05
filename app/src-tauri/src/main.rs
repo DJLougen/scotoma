@@ -3,13 +3,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use scotoma_core::transform::{render, Mode, Vault};
-use scotoma_core::{merge, utf16_to_byte, Category, Config, Scrubber, Source, Span};
+use scotoma_core::{merge, utf16_to_byte, Category, Config, Detector, Scrubber, Source, Span};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::io::Write;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use std::time::{Duration, Instant};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -32,7 +32,9 @@ struct Settings {
     /// Show the review window before anything reaches the clipboard.
     review: bool,
     strict: bool,
-    threshold: f32,
+    /// User-picked redaction threshold. `None` = follow the model's declared
+    /// default (scotoma_threshold in its config.json), else Config::default().
+    threshold: Option<f32>,
     /// Forget remembered originals after this many idle minutes (0 = never).
     vault_minutes: u32,
     /// Bring-your-own speech model: a shell command that prints the transcript
@@ -42,7 +44,7 @@ struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { mode: Mode::Tag, review: true, strict: false, threshold: Config::default().threshold, vault_minutes: 30, transcribe_cmd: String::new() }
+        Settings { mode: Mode::Tag, review: true, strict: false, threshold: None, vault_minutes: 30, transcribe_cmd: String::new() }
     }
 }
 
@@ -105,6 +107,8 @@ struct Status {
     model: Option<String>,
     model_error: Option<String>,
     settings: Settings,
+    /// The threshold actually in use: the user's, else the model's default.
+    threshold: f32,
     vault_entries: usize,
     hotkey_scrub: &'static str,
     hotkey_restore: &'static str,
@@ -133,23 +137,25 @@ fn core_spans(text: &str, spans: &[UiSpan]) -> Vec<Span> {
 }
 
 fn status_of(state: &AppState) -> Status {
+    let sc = state.scrubber.lock();
     Status {
-        model: state.scrubber.lock().unwrap().model_name(),
-        model_error: state.model_error.lock().unwrap().clone(),
-        settings: state.settings.lock().unwrap().clone(),
-        vault_entries: state.vault.lock().unwrap().len(),
+        model: sc.model_name(),
+        threshold: sc.config.threshold,
+        model_error: state.model_error.lock().clone(),
+        settings: state.settings.lock().clone(),
+        vault_entries: state.vault.lock().len(),
         hotkey_scrub: HOTKEY_SCRUB,
         hotkey_restore: HOTKEY_RESTORE,
         hotkey_capture: HOTKEY_CAPTURE,
         hotkey_blank: HOTKEY_BLANK,
         hotkey_dictate: HOTKEY_DICTATE,
-        capture_available: state.helper.lock().unwrap().is_some(),
-        dictating: state.recorder.lock().unwrap().is_some(),
+        capture_available: state.helper.lock().is_some(),
+        dictating: state.recorder.lock().is_some(),
     }
 }
 
 fn touch(state: &AppState) {
-    *state.touched.lock().unwrap() = Instant::now();
+    *state.touched.lock() = Instant::now();
 }
 
 fn analyze_text(state: &AppState, text: &str) -> Result<Analysis, String> {
@@ -159,7 +165,7 @@ fn analyze_text(state: &AppState, text: &str) -> Result<Analysis, String> {
 fn analyze_from(state: &AppState, text: &str, origin: &'static str, since: Option<Instant>) -> Result<Analysis, String> {
     let acquire_ms = since.map(|t| t.elapsed().as_millis() as u64).unwrap_or(0);
     let t0 = Instant::now();
-    let det = state.scrubber.lock().unwrap().detect(text)?;
+    let det = state.scrubber.lock().detect(text)?;
     let detect_ms = t0.elapsed().as_millis() as u64;
     let mut spans: Vec<UiSpan> = det.spans.iter().map(|s| ui_span(text, s, true)).collect();
     spans.extend(det.possible.iter().map(|s| ui_span(text, s, false)));
@@ -168,9 +174,9 @@ fn analyze_from(state: &AppState, text: &str, origin: &'static str, since: Optio
 }
 
 fn render_text(state: &AppState, text: &str, spans: &[UiSpan]) -> Preview {
-    let mode = state.settings.lock().unwrap().mode;
+    let mode = state.settings.lock().mode;
     let spans = core_spans(text, spans);
-    let out = render(text, &spans, mode, &mut state.vault.lock().unwrap());
+    let out = render(text, &spans, mode, &mut state.vault.lock());
     touch(state);
     let items = out.items.iter().map(|i| UiItem { start: to_utf16(&out.text, i.out_start), end: to_utf16(&out.text, i.out_end), category: i.category }).collect();
     Preview { text: out.text, items }
@@ -180,7 +186,7 @@ fn render_text(state: &AppState, text: &str, spans: &[UiSpan]) -> Preview {
 /// approved or replaced, so a window that was still loading (or reloads) when
 /// the hotkey fired can pick it up instead of silently showing nothing.
 fn send_review(app: &AppHandle, analysis: Analysis) {
-    *app.state::<AppState>().pending.lock().unwrap() = Some(analysis.clone());
+    *app.state::<AppState>().pending.lock() = Some(analysis.clone());
     let _ = app.emit("review", analysis);
     show_window(app);
 }
@@ -203,7 +209,7 @@ fn scrub_clipboard_impl(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         let state = app.state::<AppState>();
-        let helper = state.helper.lock().unwrap().clone();
+        let helper = state.helper.lock().clone();
         let t0 = Instant::now();
         if let Some(helper) = helper {
             if let Ok(out) = Command::new(&helper).arg("selection").stdin(Stdio::null()).output() {
@@ -228,7 +234,7 @@ fn scrub_text_impl(app: &AppHandle, text: String, origin: &'static str, since: I
         Ok(a) => a,
         Err(e) => return notify(app, &format!("Could not analyse the text: {e}")),
     };
-    let review = state.settings.lock().unwrap().review;
+    let review = state.settings.lock().review;
     if review {
         // Nothing is written back until the person approves it in the window.
         send_review(app, analysis);
@@ -252,7 +258,7 @@ fn scrub_text_impl(app: &AppHandle, text: String, origin: &'static str, since: I
 /// goes through review: OCR can misread a character and a rule can miss because of it.
 fn ocr_then_review(app: &AppHandle, verb: &'static str) {
     let state = app.state::<AppState>();
-    let Some(helper) = state.helper.lock().unwrap().clone() else {
+    let Some(helper) = state.helper.lock().clone() else {
         return notify(app, if verb == "ocr" { "The clipboard has no text to clean." } else { "Screen capture is only available on macOS for now." });
     };
     if state.capturing.swap(true, Ordering::SeqCst) { return; }
@@ -358,9 +364,9 @@ fn sh_quote(s: &str) -> String { format!("'{}'", s.replace('\'', "'\\''")) }
 /// Start recording the microphone (bring-your-own speech model).
 fn dictate_start(app: &AppHandle) {
     let state = app.state::<AppState>();
-    if state.settings.lock().unwrap().transcribe_cmd.trim().is_empty() { return; }
-    let Some(helper) = state.helper.lock().unwrap().clone() else { return };
-    let mut slot = state.recorder.lock().unwrap();
+    if state.settings.lock().transcribe_cmd.trim().is_empty() { return; }
+    let Some(helper) = state.helper.lock().clone() else { return };
+    let mut slot = state.recorder.lock();
     if slot.is_some() { return; }
     static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     let path = std::env::temp_dir().join(format!("scotoma-{}-{}.wav", std::process::id(), N.fetch_add(1, Ordering::SeqCst)));
@@ -375,9 +381,9 @@ fn dictate_start(app: &AppHandle) {
 /// Stop recording. `keep` = transcribe and review; otherwise throw it away.
 fn dictate_stop(app: &AppHandle, keep: bool) {
     let state = app.state::<AppState>();
-    let Some((mut child, path)) = state.recorder.lock().unwrap().take() else { return };
+    let Some((mut child, path)) = state.recorder.lock().take() else { return };
     let _ = app.emit("status", status_of(&state));
-    let cmd = state.settings.lock().unwrap().transcribe_cmd.clone();
+    let cmd = state.settings.lock().transcribe_cmd.clone();
     let app = app.clone();
     std::thread::spawn(move || {
         if keep {
@@ -425,7 +431,7 @@ fn dictate_stop(app: &AppHandle, keep: bool) {
 /// Show the overlay empty and focused, ready for typing or for any dictation
 /// tool that types into the focused field (Superwhisper, macOS Dictation).
 fn blank_impl(app: &AppHandle) {
-    *app.state::<AppState>().pending.lock().unwrap() = None;
+    *app.state::<AppState>().pending.lock() = None;
     let _ = app.emit("blank", ());
     show_window(app);
 }
@@ -441,7 +447,7 @@ fn find_helper(app: &AppHandle) -> Option<PathBuf> {
 fn restore_clipboard_impl(app: &AppHandle) {
     let state = app.state::<AppState>();
     let Ok(text) = app.clipboard().read_text() else { return notify(app, "The clipboard has no text to restore."); };
-    let (out, n) = state.vault.lock().unwrap().restore(&text);
+    let (out, n) = state.vault.lock().restore(&text);
     touch(&state);
     if n == 0 {
         return notify(app, "Nothing to restore: no remembered placeholders in the clipboard.");
@@ -457,13 +463,13 @@ fn status(state: State<AppState>) -> Status { status_of(&state) }
 
 #[tauri::command]
 fn analyze(state: State<AppState>, text: String) -> Result<Analysis, String> {
-    *state.pending.lock().unwrap() = None;
+    *state.pending.lock() = None;
     analyze_text(&state, &text)
 }
 
 /// The review that is waiting, if the window missed the event for it.
 #[tauri::command]
-fn pending(state: State<AppState>) -> Option<Analysis> { state.pending.lock().unwrap().clone() }
+fn pending(state: State<AppState>) -> Option<Analysis> { state.pending.lock().clone() }
 
 #[tauri::command]
 fn preview(state: State<AppState>, text: String, spans: Vec<UiSpan>) -> Preview { render_text(&state, &text, &spans) }
@@ -473,7 +479,7 @@ fn preview(state: State<AppState>, text: String, spans: Vec<UiSpan>) -> Preview 
 fn approve(app: AppHandle, state: State<AppState>, text: String, spans: Vec<UiSpan>) -> Result<Preview, String> {
     let out = render_text(&state, &text, &spans);
     app.clipboard().write_text(out.text.clone()).map_err(|e| e.to_string())?;
-    *state.pending.lock().unwrap() = None;
+    *state.pending.lock() = None;
     let _ = app.emit("status", status_of(&state));
     Ok(out)
 }
@@ -483,10 +489,10 @@ fn capture(app: AppHandle) { capture_impl(&app) }
 
 fn dictate_toggle(app: &AppHandle) {
     let state = app.state::<AppState>();
-    if state.recorder.lock().unwrap().is_some() {
+    if state.recorder.lock().is_some() {
         return dictate_stop(app, true);
     }
-    if state.settings.lock().unwrap().transcribe_cmd.trim().is_empty() {
+    if state.settings.lock().transcribe_cmd.trim().is_empty() {
         show_window(app);
         return notify(app, "Set a speech model in Scotoma's side panel first.");
     }
@@ -518,14 +524,14 @@ struct Restored { text: String, count: usize }
 
 #[tauri::command]
 fn restore_text(state: State<AppState>, text: String) -> Restored {
-    let (text, count) = state.vault.lock().unwrap().restore(&text);
+    let (text, count) = state.vault.lock().restore(&text);
     touch(&state);
     Restored { text, count }
 }
 
 #[tauri::command]
 fn clear_vault(app: AppHandle, state: State<AppState>) -> Status {
-    state.vault.lock().unwrap().clear();
+    state.vault.lock().clear();
     let s = status_of(&state);
     let _ = app.emit("status", s.clone());
     s
@@ -533,17 +539,20 @@ fn clear_vault(app: AppHandle, state: State<AppState>) -> Status {
 
 fn apply_settings(state: &AppState, new: Settings) {
     {
-        let mut sc = state.scrubber.lock().unwrap();
+        let mut sc = state.scrubber.lock();
         sc.config.strict = new.strict;
-        sc.config.threshold = new.threshold.clamp(0.02, 0.98);
-        sc.config.floor = sc.config.floor.min(sc.config.threshold);
+        // A user-set threshold wins; otherwise the loaded model's declared
+        // default applies, then Config::default(). Clamped to the usable range;
+        // 0.02 (the clinical operating point) is allowed exactly.
+        let t = scotoma_core::effective_threshold(new.threshold, sc.model_suggested_threshold());
+        sc.config.set_threshold(t.clamp(0.02, 0.98));
     }
-    if let Some(p) = state.settings_path.lock().unwrap().as_ref() {
+    if let Some(p) = state.settings_path.lock().as_ref() {
         if let Some(dir) = p.parent() { let _ = std::fs::create_dir_all(dir); }
         // Settings only. No text, no spans, no vault ever touches the disk.
         let _ = std::fs::write(p, serde_json::to_string_pretty(&new).unwrap_or_default());
     }
-    *state.settings.lock().unwrap() = new;
+    *state.settings.lock() = new;
 }
 
 #[tauri::command]
@@ -571,8 +580,14 @@ fn load_model(app: AppHandle) {
             for dir in model_dirs(&app).into_iter().filter(|d| d.is_dir()) {
                 match scotoma_core::model::OnnxDetector::load(&dir) {
                     Ok(det) => {
-                        let mut sc = state.scrubber.lock().unwrap();
+                        // The model may declare its own operating point
+                        // (scotoma_threshold in config.json); it applies only
+                        // while the user hasn't set a sensitivity.
+                        let user = state.settings.lock().threshold;
+                        let mut sc = state.scrubber.lock();
+                        let t = scotoma_core::effective_threshold(user, det.suggested_threshold());
                         sc.set_model(Some(Box::new(det)));
+                        sc.config.set_threshold(t.clamp(0.02, 0.98));
                         // Pay the first-inference cost now, not on the first hotkey.
                         let _ = sc.detect("Patient John Smith, MRN 1234567, seen 2024-01-01.");
                         drop(sc);
@@ -582,12 +597,12 @@ fn load_model(app: AppHandle) {
                     Err(e) => err = Some(format!("{}: {e}", dir.display())),
                 }
             }
-            *state.model_error.lock().unwrap() = err;
+            *state.model_error.lock() = err;
         }
         #[cfg(not(feature = "onnx"))]
         {
             let _ = model_dirs(&app);
-            *state.model_error.lock().unwrap() = Some("built without model support".into());
+            *state.model_error.lock() = Some("built without model support".into());
         }
         let _ = app.emit("status", status_of(&state));
     });
@@ -643,13 +658,13 @@ fn main() {
             if let Ok(dir) = app.path().app_config_dir() {
                 let path = dir.join("settings.json");
                 let saved = std::fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str::<Settings>(&s).ok());
-                *state.settings_path.lock().unwrap() = Some(path);
+                *state.settings_path.lock() = Some(path);
                 if let Some(s) = saved { apply_settings(&state, s); }
             }
-            let settings = state.settings.lock().unwrap().clone();
+            let settings = state.settings.lock().clone();
 
-            *state.helper.lock().unwrap() = find_helper(&handle);
-            let can_capture = state.helper.lock().unwrap().is_some();
+            *state.helper.lock() = find_helper(&handle);
+            let can_capture = state.helper.lock().is_some();
 
             for key in [HOTKEY_SCRUB, HOTKEY_RESTORE, HOTKEY_CAPTURE, HOTKEY_BLANK, HOTKEY_DICTATE] {
                 if let Err(e) = app.global_shortcut().register(key) {
@@ -675,7 +690,7 @@ fn main() {
             if let Some(icon) = app.default_window_icon() { tray = tray.icon(icon.clone()); }
             tray.on_menu_event(move |app, event| {
                 let state = app.state::<AppState>();
-                let mut s = state.settings.lock().unwrap().clone();
+                let mut s = state.settings.lock().clone();
                 match event.id().as_ref() {
                     "scrub" => return scrub_clipboard_impl(app),
                     "restore" => return restore_clipboard_impl(app),
@@ -684,11 +699,11 @@ fn main() {
                     "dictate" => return dictate_toggle(app),
                     "open" => return show_window(app),
                     "quit" => {
-                        state.vault.lock().unwrap().clear();
-                        if let Some((mut c, path)) = state.recorder.lock().unwrap().take() { let _ = c.kill(); let _ = std::fs::remove_file(path); }
+                        state.vault.lock().clear();
+                        if let Some((mut c, path)) = state.recorder.lock().take() { let _ = c.kill(); let _ = std::fs::remove_file(path); }
                         return app.exit(0);
                     }
-                    "forget" => state.vault.lock().unwrap().clear(),
+                    "forget" => state.vault.lock().clear(),
                     "review" => s.review = !s.review,
                     "standins" => s.mode = if s.mode == Mode::Tag { Mode::Surrogate } else { Mode::Tag },
                     "strict" => s.strict = !s.strict,
@@ -703,7 +718,7 @@ fn main() {
                 let (review, standins, strict) = (review.clone(), standins.clone(), strict.clone());
                 let h = handle.clone();
                 tauri::Listener::listen(&handle, "status", move |_| {
-                    let s = h.state::<AppState>().settings.lock().unwrap().clone();
+                    let s = h.state::<AppState>().settings.lock().clone();
                     let _ = review.set_checked(s.review);
                     let _ = standins.set_checked(s.mode == Mode::Surrogate);
                     let _ = strict.set_checked(s.strict);
@@ -716,10 +731,10 @@ fn main() {
                 std::thread::spawn(move || loop {
                     std::thread::sleep(Duration::from_secs(20));
                     let state = h.state::<AppState>();
-                    let mins = state.settings.lock().unwrap().vault_minutes;
-                    let idle = state.touched.lock().unwrap().elapsed();
+                    let mins = state.settings.lock().vault_minutes;
+                    let idle = state.touched.lock().elapsed();
                     if mins > 0 && idle > Duration::from_secs(mins as u64 * 60) {
-                        let mut v = state.vault.lock().unwrap();
+                        let mut v = state.vault.lock();
                         if !v.is_empty() {
                             v.clear();
                             drop(v);

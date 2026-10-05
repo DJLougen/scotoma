@@ -10,7 +10,7 @@ use crate::{tidy, Category, Config, Detector, Source, Span};
 use ort::session::{builder::GraphOptimizationLevel, Session};
 use ort::value::Tensor;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use tokenizers::Tokenizer;
 
 pub struct OnnxDetector {
@@ -24,6 +24,8 @@ pub struct OnnxDetector {
     window: usize,
     stride: usize,
     name: String,
+    /// `scotoma_threshold` from config.json: the model's recommended default.
+    suggested: Option<f32>,
 }
 
 const CANDIDATES: &[&str] = &[
@@ -78,7 +80,8 @@ impl OnnxDetector {
         let name = cfg.get("_name_or_path").and_then(|v| v.as_str()).filter(|s| !s.is_empty())
             .map(|s| s.to_string())
             .unwrap_or_else(|| dir.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "model".into()));
-        Ok(OnnxDetector { session: Mutex::new(session), tokenizer, classes, prefix, suffix, inputs, window, stride: window / 6, name })
+        let suggested = crate::cfg_threshold(&cfg);
+        Ok(OnnxDetector { session: Mutex::new(session), tokenizer, classes, prefix, suffix, inputs, window, stride: window / 6, name, suggested })
     }
 
     /// Returns per-token class probabilities (row-major, tokens × classes).
@@ -89,7 +92,7 @@ impl OnnxDetector {
         let mut cnt = vec![0f32; n];
         let step = self.window - self.stride;
         let mut start = 0;
-        let mut session = self.session.lock().map_err(|_| "model lock poisoned")?;
+        let mut session = self.session.lock();
         loop {
             let end = (start + self.window).min(n);
             let mut input: Vec<i64> = self.prefix.clone();
@@ -140,6 +143,7 @@ fn glue(gap: &str) -> bool {
 impl Detector for OnnxDetector {
     fn name(&self) -> String { self.name.clone() }
 
+    fn suggested_threshold(&self) -> Option<f32> { self.suggested }
     fn detect(&self, text: &str, cfg: &Config) -> Result<(Vec<Span>, Vec<Span>), String> {
         if text.trim().is_empty() { return Ok((Vec::new(), Vec::new())); }
         let enc = self.tokenizer.encode(text, false).map_err(|e| e.to_string())?;

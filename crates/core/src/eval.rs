@@ -66,6 +66,9 @@ pub struct Miss {
 
 #[derive(Debug, Serialize)]
 pub struct Report {
+    /// The redaction threshold the model ran at (incl. the model's own
+    /// default when the caller didn't pick one).
+    pub threshold: f32,
     pub docs: usize,
     /// Documents in which at least one identifier got through untouched.
     pub docs_with_leak: usize,
@@ -228,6 +231,7 @@ pub fn evaluate(scrubber: &Scrubber, docs: &[GoldDoc], max_misses: usize) -> Res
     let mut overall = Stats::default();
     for s in by.values() { overall.add(s); }
     Ok(Report {
+        threshold: scrubber.config.threshold,
         docs: docs.len(), docs_with_leak, overall, by_category: by, by_tag, by_domain, by_mode, responses, misses,
         clean_chars,
         over_redaction: if clean_chars == 0 { 0.0 } else { clean_redacted as f64 / clean_chars as f64 },

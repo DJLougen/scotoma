@@ -13,6 +13,7 @@ onnx = ["scotoma-core/onnx"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+parking_lot = "0.12"
 scotoma-core = { path = "../../crates/core" }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-clipboard-manager = "2"

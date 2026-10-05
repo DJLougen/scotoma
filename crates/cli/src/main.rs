@@ -12,8 +12,17 @@
 //! "over_redaction"}, ...] and the text table gains an over-redaction column.
 
 use scotoma_core::transform::{render, Mode, Vault};
-use scotoma_core::{eval, Config, Scrubber};
+use scotoma_core::{eval, Config, Detector, Scrubber};
 use std::io::Read;
+
+fn engine_name(sc: &Scrubber) -> String {
+    match (sc.config.use_rules, sc.model_name()) {
+        (true, Some(m)) => format!("rules + {m}"),
+        (true, None) => "rules".into(),
+        (false, Some(m)) => m,
+        (false, None) => "nothing (no rules, no model)".into(),
+    }
+}
 
 struct Args {
     cmd: String,
@@ -24,6 +33,8 @@ struct Args {
     limit: Option<usize>,
     misses: usize,
     cfg: Config,
+    /// Whether --threshold was passed; if not, a model's scotoma_threshold wins.
+    threshold_set: bool,
     path2: Option<String>,
     responses: Option<String>,
     predictions: Option<String>,
@@ -33,7 +44,7 @@ struct Args {
 fn parse() -> Result<Args, String> {
     let mut it = std::env::args().skip(1);
     let cmd = it.next().ok_or("usage: scotoma <scrub|eval|sweep> [options]")?;
-    let mut a = Args { cmd, path: None, model: std::env::var("SCOTOMA_MODEL").ok(), surrogate: false, json: false, limit: None, misses: 25, cfg: Config::default(), path2: None, responses: None, predictions: None, thresholds: None };
+    let mut a = Args { cmd, path: None, model: std::env::var("SCOTOMA_MODEL").ok(), surrogate: false, json: false, limit: None, misses: 25, cfg: Config::default(), threshold_set: false, path2: None, responses: None, predictions: None, thresholds: None };
     while let Some(x) = it.next() {
         let mut val = |n: &str| it.next().ok_or(format!("{n} needs a value"));
         match x.as_str() {
@@ -44,7 +55,7 @@ fn parse() -> Result<Args, String> {
             "--no-rules" => a.cfg.use_rules = false,
             "--responses" => a.responses = Some(val("--responses")?),
             "--json" => a.json = true,
-            "--threshold" => a.cfg.threshold = val("--threshold")?.parse().map_err(|_| "bad --threshold")?,
+            "--threshold" => { a.cfg.threshold = val("--threshold")?.parse().map_err(|_| "bad --threshold")?; a.threshold_set = true; }
             "--limit" => a.limit = Some(val("--limit")?.parse().map_err(|_| "bad --limit")?),
             "--misses" => a.misses = val("--misses")?.parse().map_err(|_| "bad --misses")?,
             "--predictions" => a.predictions = Some(val("--predictions")?),
@@ -59,8 +70,7 @@ fn parse() -> Result<Args, String> {
     Ok(a)
 }
 
-fn scrubber(a: &Args) -> Result<Scrubber, String> {
-    #[allow(unused_mut)]
+fn scrubber(a: &mut Args) -> Result<Scrubber, String> {
     let mut sc = Scrubber::rules_only(a.cfg.clone());
     if a.model.is_some() && a.predictions.is_some() {
         return Err("use --model or --predictions, not both".into());
@@ -69,7 +79,11 @@ fn scrubber(a: &Args) -> Result<Scrubber, String> {
         #[cfg(feature = "onnx")]
         {
             let det = scotoma_core::model::OnnxDetector::load(std::path::Path::new(dir))?;
+            // An explicit --threshold beats the model's declared default.
+            let user = a.threshold_set.then_some(a.cfg.threshold);
+            a.cfg.set_threshold(scotoma_core::effective_threshold(user, det.suggested_threshold()));
             sc.set_model(Some(Box::new(det)));
+            sc.config = a.cfg.clone();
         }
         #[cfg(not(feature = "onnx"))]
         return Err(format!("built without the onnx feature; cannot load {dir}"));
@@ -89,25 +103,25 @@ fn load(a: &Args) -> Result<Vec<eval::GoldDoc>, String> {
 }
 
 fn run() -> Result<(), String> {
-    let a = parse()?;
+    let mut a = parse()?;
     match a.cmd.as_str() {
         "scrub" => {
-            let sc = scrubber(&a)?;
+            let sc = scrubber(&mut a)?;
             let mut text = String::new();
             std::io::stdin().read_to_string(&mut text).map_err(|e| e.to_string())?;
             let det = sc.detect(&text)?;
             let mut vault = Vault::new();
             let out = render(&text, &det.spans, if a.surrogate { Mode::Surrogate } else { Mode::Tag }, &mut vault);
             if a.json {
-                println!("{}", serde_json::json!({ "text": out.text, "items": out.items, "possible": det.possible }));
+                println!("{}", serde_json::json!({ "text": out.text, "items": out.items, "possible": det.possible, "threshold": sc.config.threshold }));
             } else {
                 print!("{}", out.text);
-                eprintln!("\n— {} replaced, {} possible, engine: rules{}", out.items.len(), det.possible.len(),
-                    sc.model_name().map(|n| format!(" + {n}")).unwrap_or_default());
+                eprintln!("\n— {} replaced, {} possible, engine: {} · threshold {}",
+                    out.items.len(), det.possible.len(), engine_name(&sc), sc.config.threshold);
             }
         }
         "eval" => {
-            let sc = scrubber(&a)?;
+            let sc = scrubber(&mut a)?;
             let docs = load(&a)?;
             let r = eval::evaluate(&sc, &docs, a.misses)?;
             if let Some(path) = &a.responses {
@@ -118,13 +132,7 @@ fn run() -> Result<(), String> {
             if a.json {
                 println!("{}", serde_json::to_string_pretty(&r).map_err(|e| e.to_string())?);
             } else {
-                let engine = match (sc.config.use_rules, sc.model_name()) {
-                    (true, Some(m)) => format!("rules + {m}"),
-                    (true, None) => "rules".into(),
-                    (false, Some(m)) => m,
-                    (false, None) => "nothing (no rules, no model)".into(),
-                };
-                println!("engine: {engine} · threshold {} · strict {}\n", sc.config.threshold, sc.config.strict);
+                println!("engine: {} · threshold {} · strict {}\n", engine_name(&sc), sc.config.threshold, sc.config.strict);
                 print!("{}", eval::format_report(&r));
                 if !r.misses.is_empty() {
                     println!("\nmisses (first {}):", r.misses.len());
@@ -135,22 +143,30 @@ fn run() -> Result<(), String> {
             }
         }
         "sweep" => {
-            let mut sc = scrubber(&a)?;
+            let mut sc = scrubber(&mut a)?;
             let docs = load(&a)?;
-            let thresholds = a.thresholds.clone()
+            let model_default = sc.model_suggested_threshold();
+            let mut thresholds = a.thresholds.clone()
                 .unwrap_or_else(|| vec![0.05, 0.1, 0.2, 0.35, 0.5, 0.7, 0.9]);
+            if let Some(t) = model_default {
+                if !thresholds.iter().any(|&x| x == t) { thresholds.insert(0, t); }
+            }
+            thresholds.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
+            thresholds.dedup();
             let frac = |x: f64| if x.is_nan() { serde_json::Value::Null } else { serde_json::json!(x) };
             let mut rows = Vec::new();
             if !a.json {
+                println!("engine: {} · model default threshold {}", engine_name(&sc),
+                    model_default.map(|t| t.to_string()).unwrap_or_else(|| "none".into()));
                 println!("{:>9} {:>8} {:>8} {:>8} {:>10} {:>8}", "threshold", "recall", "full", "prec", "leak docs", "over-red");
             }
             for th in thresholds {
-                sc.config.threshold = th;
-                sc.config.floor = sc.config.floor.min(th);
+                sc.config.set_threshold(th);
                 let r = eval::evaluate(&sc, &docs, 0)?;
                 if a.json {
                     rows.push(serde_json::json!({
                         "threshold": th,
+                        "model_default": model_default == Some(th),
                         "recall": frac(r.overall.recall()),
                         "full": frac(r.overall.full_recall()),
                         "chars": frac(r.overall.char_recall()),
@@ -161,9 +177,10 @@ fn run() -> Result<(), String> {
                         "clean_chars": r.clean_chars,
                     }));
                 } else {
-                    println!("{:>9.2} {:>8.1} {:>8.1} {:>8.1} {:>10} {:>8.1}", th,
+                    let mark = if model_default == Some(th) { " *model default*" } else { "" };
+                    println!("{:>9.2} {:>8.1} {:>8.1} {:>8.1} {:>10} {:>8.1}{}", th,
                         r.overall.recall() * 100.0, r.overall.full_recall() * 100.0,
-                        r.overall.precision() * 100.0, r.docs_with_leak, r.over_redaction * 100.0);
+                        r.overall.precision() * 100.0, r.docs_with_leak, r.over_redaction * 100.0, mark);
                 }
             }
             if a.json {
@@ -201,6 +218,7 @@ fn run() -> Result<(), String> {
     }
     Ok(())
 }
+
 
 fn main() {
     if let Err(e) = run() {

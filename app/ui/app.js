@@ -35,8 +35,10 @@ function applyStatus(s) {
   if (s.model) { e.textContent = "rules + " + s.model.split("/").pop(); e.className = "chip ok"; e.title = "Detection model: " + s.model; }
   else { e.textContent = "rules only · no model"; e.className = "chip bad"; e.title = s.model_error || "No model folder found. Names without context will be missed. See README."; }
   $("vault-n").textContent = s.vault_entries;
-  $("threshold").value = (1 - settings.threshold).toFixed(2);
-  $("threshold-out").textContent = Math.round((1 - settings.threshold) * 100) + "%";
+  // s.threshold is the effective value (user override, else the model's
+  // declared default); settings.threshold is null when following the model.
+  $("threshold").value = Math.min(0.98, Math.max(0.02, +(1 - s.threshold).toFixed(2)));
+  $("threshold-out").textContent = Math.round((1 - s.threshold) * 100) + "%" + (settings.threshold == null ? " (model default)" : "");
   $("threshold").disabled = !s.model;
   $("strict").checked = settings.strict;
   $("review").checked = settings.review;

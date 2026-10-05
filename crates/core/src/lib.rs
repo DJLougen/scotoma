@@ -129,6 +129,11 @@ pub trait Detector: Send + Sync {
     fn detect_doc(&self, _id: Option<&str>, text: &str, cfg: &Config) -> Result<(Vec<Span>, Vec<Span>), String> {
         self.detect(text, cfg)
     }
+    /// Redaction probability the model's config.json recommends
+    /// (`scotoma_threshold`). Callers honour it unless the user picked one.
+    fn suggested_threshold(&self) -> Option<f32> {
+        None
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,6 +155,36 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config { threshold: 0.35, floor: 0.08, strict: false, propagate_names: true, use_rules: true }
+    }
+}
+
+/// A model can ship its operating point: `"scotoma_threshold": 0.02` in its
+/// `config.json` (usually alongside `"scotoma_domain": "clinical"`). This reads
+/// that key from a model directory without loading the ONNX graph.
+pub fn model_default_threshold(dir: &std::path::Path) -> Option<f32> {
+    let cfg: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("config.json")).ok()?).ok()?;
+    cfg_threshold(&cfg)
+}
+
+/// Extract a sane (0, 1) `scotoma_threshold` from a parsed config.json.
+pub(crate) fn cfg_threshold(cfg: &serde_json::Value) -> Option<f32> {
+    let t = cfg.get("scotoma_threshold")?.as_f64()? as f32;
+    (t > 0.0 && t < 1.0).then_some(t)
+}
+
+/// Which redaction threshold applies: the user's explicit choice wins, then
+/// the model's declared default, then the built-in default.
+pub fn effective_threshold(user: Option<f32>, model: Option<f32>) -> f32 {
+    user.or(model).unwrap_or_else(|| Config::default().threshold)
+}
+
+impl Config {
+    /// Set the redaction threshold; `floor` can never sit above it, since
+    /// floor marks sub-threshold candidates for review.
+    pub fn set_threshold(&mut self, t: f32) {
+        self.threshold = t;
+        self.floor = self.floor.min(t);
     }
 }
 
@@ -215,6 +250,11 @@ impl Scrubber {
         let possible = merge::subtract(merge::merge(text, possible), &spans);
         Ok(Detection { spans, possible })
     }
+
+    /// The redaction threshold the loaded model recommends, if any.
+    pub fn model_suggested_threshold(&self) -> Option<f32> {
+        self.model.as_ref().and_then(|m| m.suggested_threshold())
+    }
 }
 
 pub(crate) fn current_year() -> i32 {
@@ -235,6 +275,44 @@ pub fn utf16_to_byte(text: &str, pos16: usize) -> usize {
         u += ch.len_utf16();
     }
     text.len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn model_declared_threshold_becomes_default() {
+        let dir = std::env::temp_dir().join(format!("scotoma-cfg-threshold-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        // A config.json carrying scotoma_threshold advertises it.
+        std::fs::write(dir.join("config.json"),
+            r#"{"id2label": {"0": "O"}, "scotoma_threshold": 0.02, "scotoma_domain": "clinical"}"#).unwrap();
+        assert_eq!(model_default_threshold(&dir), Some(0.02));
+
+        // A config without the key (or without a config at all) stays on the
+        // built-in default.
+        let bare = dir.join("bare");
+        std::fs::create_dir_all(&bare).unwrap();
+        std::fs::write(bare.join("config.json"), r#"{"id2label": {"0": "O"}}"#).unwrap();
+        assert_eq!(model_default_threshold(&bare), None);
+        assert_eq!(model_default_threshold(&dir.join("missing")), None);
+
+        // Priority: explicit user/CLI threshold > model default > Config::default().
+        let model = model_default_threshold(&dir);
+        assert_eq!(effective_threshold(None, model), 0.02);
+        assert_eq!(effective_threshold(Some(0.35), model), 0.35);
+        assert_eq!(effective_threshold(None, None), Config::default().threshold);
+
+        // set_threshold keeps the review floor below the redaction line.
+        let mut c = Config::default();
+        c.set_threshold(effective_threshold(None, model));
+        assert_eq!(c.threshold, 0.02);
+        assert!(c.floor <= c.threshold);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 /// Char offset → byte offset (datasets annotate in chars).

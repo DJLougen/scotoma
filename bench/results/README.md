@@ -166,3 +166,58 @@ See `p1d_test_tpl`, `p1d3_test_tpl`, `p1d2_*`, `p1d3_nemo_test`, `p1d_pf_*`. Lic
 piiranha is **CC BY-NC-ND 4.0** (benchmark only, not commercial); ai4privacy's real models are ModernBERT
 (`llama-ai4privacy-*`), not "deberta-v3-base-pii"; ai4privacy-en's low template recall (54%) was cross-checked with its
 own HF pipeline (51.5% on 40 docs) so it is not a Scotoma conversion artefact.
+
+# Test battery and format ingest (2026-10-04)
+
+Two commands wrap the pieces above into a repeatable loop.
+
+## `bench/battery.py` — one-command dev-tier scorecard
+
+    python bench/battery.py MODEL_DIR [--name N] [--threshold T] [--rules both|off|on] \\
+        [--out bench/results/battery/<name>] [--quick [N]] [--baseline scorecard.json]
+
+Scores the model through `bench/run.py` (same scorer as every table above) on every dev-tier
+set — template test B (`test_tpl.jsonl`, strict), Nemotron test, clinical dev
+(`clin_dev_tagged.jsonl`), and the novel-format clinical dev (`clin_novel_dev.jsonl`, skipped
+while absent) — plus a `scotoma sweep --json` threshold sweep on clinical dev. `--quick`
+restricts each set to its first N docs (default 150) for fast iteration. Per-set artefacts go to
+`<out>/sets/<set>/`; the headline `scorecard.md` / `scorecard.json` sit at the top.
+
+Gates (exit code 1 on any failure, so CI or a training script can gate on it):
+
+| gate | rule |
+|---|---|
+| `over_redaction` | <= 1% of clean characters redacted, every set, every system |
+| `leak_regression` | leak-doc rate on `clin_dev`/`clin_novel_dev` <= baseline + 0.5 pp (needs `--baseline` scorecard.json) |
+| `int8_fp32_gap` | int8 vs `model_fp32.onnx` recall gap <= 0.5 pp on clinical dev (skipped when no fp32 sibling exists) |
+
+Safety: any model/data/output/baseline path containing `sealed` is a hard error — the battery
+never touches the sealed half. `python bench/battery.py --selftest` proves the guard.
+
+## `train/ingest_formats.py` — teach the model a new identifier format
+
+    python train/ingest_formats.py --base models/scotoma-v0/hf --out models/scotoma-v1 \\
+        [--formats name1,name2] [--steps 400] [--device mps] [--battery-quick 150] \\
+        [--baseline scorecard.json | --baseline-model models/scotoma-v0-int8pc]
+
+1. Registers/reads formats through `bench/formats.py`; `--formats` restricts to named
+   **train-split** formats (default: every train format with a compilable pattern).
+   `formats.py add LABEL --split train --name N --examples ...` is how new formats enter.
+   Targeted formats are planted via their own compiled pattern sampler; other planted
+   identifiers come from `formats.sample(label, "train", rng)`, which delegates to
+   `generate.py` itself — so test-split formats stay unreachable.
+2. Synthesises clinical-style training docs (`synth_train.jsonl`): carrier sentences whose only
+   planted values come from train-split formats (own-pattern samplers for the targeted formats,
+   `formats.sample` for the rest — test-split formats are unreachable and asserted against),
+   plus hard negatives (doses, vitals, labs) and plain sentences.
+3. Mixes in replay: `generate.py --universe A` regenerated deterministically, plus
+   `bench/data/nemo_train.jsonl` when present (missing → templates-only replay; regenerate with
+   `python scripts/prep_dataset.py nvidia/Nemotron-PII --split train --limit 50000 --out
+   bench/data/nemo_train.jsonl`).
+4. Fine-tunes from `--base` via `train/train.py` (`--steps` caps optimisation), exports ONNX,
+   and re-quantises **per-channel** int8 — the shipped clinical operating format.
+5. Runs `bench/battery.py` on the result, optionally gated against the old model's scorecard.
+
+`manifest.json` in the output dir records formats, doc counts, planted-value counts per format,
+seeds, base-checkpoint sha256, and the exact train files used.
+`python train/ingest_formats.py --selftest` proves a test-split format is rejected.

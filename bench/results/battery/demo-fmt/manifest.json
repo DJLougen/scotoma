@@ -1,0 +1,58 @@
+{
+ "base": "/Users/djl/Projects/scotoma/models/scotoma-v0/hf",
+ "base_safetensors_sha256": "dc70aad5b6f5f57bc5339773e5cd1c7650fb74a0d4049ae60e7ee480bfafa5b3",
+ "out": "/Users/djl/Projects/scotoma/models/scotoma-demo-fmt",
+ "seed": 0,
+ "steps": 150,
+ "epochs": 3,
+ "batch": 16,
+ "lr": 2e-05,
+ "device": "mps",
+ "formats": [
+  "demo_hlt_mrn"
+ ],
+ "labels": [
+  "ACCOUNT",
+  "ADDRESS",
+  "AGE",
+  "DATE",
+  "DEVICE",
+  "EMAIL",
+  "FAX",
+  "ID",
+  "IP",
+  "LICENSE",
+  "LOCATION",
+  "MRN",
+  "ORG",
+  "PHONE",
+  "PLAN",
+  "SSN",
+  "URL",
+  "VEHICLE",
+  "ZIP"
+ ],
+ "planted_counts": {
+  "generate.py": 1100,
+  "demo_hlt_mrn": 1652
+ },
+ "doc_counts": {
+  "synth_train.jsonl": 800,
+  "synth_dev.jsonl": 100
+ },
+ "replay_files": [
+  "models/scotoma-demo-fmt/replay_tpl_a.jsonl"
+ ],
+ "replay_note": "bench/data/nemo_train.jsonl missing \u2014 templates-only replay. Regenerate: python scripts/prep_dataset.py nvidia/Nemotron-PII --split train --limit 50000 --out bench/data/nemo_train.jsonl",
+ "train_files": [
+  "models/scotoma-demo-fmt/synth_train.jsonl",
+  "models/scotoma-demo-fmt/replay_tpl_a.jsonl"
+ ],
+ "dev_files": [
+  "models/scotoma-demo-fmt/synth_dev.jsonl",
+  "bench/data/dev_tpl.jsonl"
+ ],
+ "battery_exit": 1,
+ "baseline_scorecard": "/Users/djl/Projects/scotoma/models/scotoma-demo-fmt/baseline_battery/scorecard.json",
+ "wall_s": 196.9
+}

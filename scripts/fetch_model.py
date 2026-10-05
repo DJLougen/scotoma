@@ -51,7 +51,12 @@ def main():
     ap.add_argument("--model", default=DEFAULT)
     ap.add_argument("--out", default=str(ROOT / "app" / "src-tauri" / "models" / "default"))
     ap.add_argument("--no-quantize", action="store_true")
+    ap.add_argument("--no-per-channel", dest="per_channel", action="store_false",
+                    help="quantize weights per-tensor instead of per-channel (per-channel is the default; it keeps more accuracy)")
     ap.add_argument("--keep-fp32", action="store_true", help="keep model_fp32.onnx beside the int8 model (for fp32-vs-int8 scoring; never bundle it)")
+    ap.add_argument("--threshold", type=float, default=None,
+                    help="write scotoma_threshold into config.json: the default redaction threshold the app/CLI adopt for this model")
+    ap.add_argument("--domain", default=None, help="write scotoma_domain into config.json (e.g. clinical)")
     a = ap.parse_args()
 
     from transformers import AutoModelForTokenClassification, AutoTokenizer
@@ -68,6 +73,11 @@ def main():
     enc, names, ref = onnx_export(model, tok, tmp / "model.onnx")
     tok.backend_tokenizer.save(str(tmp / "tokenizer.json"))
     model.config.to_json_file(str(tmp / "config.json"))
+    if a.threshold is not None or a.domain:
+        cfg = json.load(open(tmp / "config.json"))
+        if a.threshold is not None: cfg["scotoma_threshold"] = a.threshold
+        if a.domain: cfg["scotoma_domain"] = a.domain
+        json.dump(cfg, open(tmp / "config.json", "w"), indent=1)
     labels = json.load(open(tmp / "config.json"))["id2label"]
     print(f"{len(labels)} labels: {', '.join(list(labels.values())[:12])} ...")
 
@@ -75,7 +85,8 @@ def main():
         import onnxruntime as ort
         from onnxruntime.quantization import QuantType, quantize_dynamic
         print("quantising to int8 ...")
-        quantize_dynamic(str(tmp / "model.onnx"), str(tmp / "model_quantized.onnx"), weight_type=QuantType.QInt8)
+        quantize_dynamic(str(tmp / "model.onnx"), str(tmp / "model_quantized.onnx"),
+                         weight_type=QuantType.QInt8, per_channel=a.per_channel)
         q = ort.InferenceSession(str(tmp / "model_quantized.onnx"), providers=["CPUExecutionProvider"]).run(None, {n: enc[n].numpy() for n in names})[0]
         print(f"int8 label agreement with fp32 on probe: {float((q.argmax(-1) == ref.argmax(-1)).mean()):.2f}")
         if a.keep_fp32: (tmp / "model.onnx").rename(tmp / "model_fp32.onnx")   # not loaded by the app
