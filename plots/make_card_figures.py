@@ -171,6 +171,11 @@ def overlap_check(fig, name):
     canvas = fig.bbox
 
     texts = []
+    for leg in fig.legends:
+        for t in leg.texts:
+            bb = _ext(t, renderer)
+            if bb and t.get_text().strip():
+                texts.append((bb, f"leg:{t.get_text()[:38]!r}"))
     for t in fig.texts:
         bb = _ext(t, renderer)
         if bb and t.get_text().strip() and t.get_visible():
@@ -220,6 +225,19 @@ def overlap_check(fig, name):
                           pb.y0 - 2 <= ba.y0 and ba.y1 <= pb.y1 + 2)
                 if not inside:
                     bad.append(f"{da} crosses patch")
+    # bars/shapes must stay inside their axes (they don't clip by default)
+    for ax in fig.axes:
+        ab = ax.get_window_extent(renderer)
+        for p in ax.patches:
+            if isinstance(p, FancyArrowPatch):
+                continue
+            pb = _ext(p, renderer)
+            if not pb:
+                continue
+            if (pb.x0 < ab.x0 - 4 or pb.x1 > ab.x1 + 4 or
+                    pb.y0 < ab.y0 - 4 or pb.y1 > ab.y1 + 4):
+                bad.append(f"{type(p).__name__} escapes axes "
+                           f"{ab.width:.0f}x{ab.height:.0f}")
     if bad:
         raise AssertionError(
             f"{name}: {len(bad)} overlaps:\n  " + "\n  ".join(bad[:60]))
@@ -392,6 +410,7 @@ def draw_hero(d, dark=False):
         ax.set_title(title, loc="left", fontsize=9.5, fontweight="bold",
                      color=sub, pad=6)
         ax.set_xlim(0, xmax)
+        ax.set_ylim(-0.75, len(rows) - 0.15)
         ax.set_xticks([])
         style_ax(ax, dark)
         ax.spines[["bottom", "left"]].set_visible(False)
@@ -511,17 +530,19 @@ def fig_field():
                   darken(col))
     ax.set_yticks(ys)
     ax.set_yticklabels([r[0] for r in rows], fontsize=9.5, color=INK)
+    ax.set_ylim(-0.62, len(rows) - 0.35)
     ax.invert_yaxis()
     ax.set_xlim(0, 108)
     ax.set_xticks([0, 25, 50, 75])
     ax.set_xlabel("% of notes", fontsize=9, color=SUB)
     style_ax(ax)
 
-    handles = [Rectangle((0, 0), 1, 1, facecolor="#bbbbbb"),
-               Rectangle((0, 0), 1, 1, facecolor="#bbbbbb", alpha=0.45)]
-    fig.legend(handles, ["+ Scotoma rules", "model alone"], loc="upper right",
-               bbox_to_anchor=(0.965, 0.895), ncol=1, frameon=False,
-               fontsize=8.5)
+    handles = [Rectangle((0, 0), 1, 1, facecolor=TEAL),
+               Rectangle((0, 0), 1, 1, facecolor=tint(TEAL, 0.55))]
+    fig.legend(handles, ["+ Scotoma rules", "model alone"],
+               loc="lower left", bbox_to_anchor=(0.66, 0.845), ncol=2,
+               frameon=False, fontsize=8.5, handlelength=1.4,
+               columnspacing=1.2)
     save(fig, "field.png")
 
 
@@ -579,12 +600,13 @@ def fig_speed():
                          "scored once · + rules, 860 notes, one Mac CPU · "
                          "bubble = ONNX file size · not shown: GLiNER ×4, "
                          "privacy-filter, Presidio (GPU-precomputed, n/m)")
-    ax = card_axes(fig, (0.028, 0.055, 0.70, 0.80), pad=0.03)
-    ax.set_position([0.095, 0.10, 0.60, 0.70])
+    ax = card_axes(fig, (0.028, 0.055, 0.945, 0.80), pad=0.03)
+    ax.set_position([0.085, 0.115, 0.845, 0.685])
 
     # better-quadrant: soft teal gradient, bottom-left
-    ax.set_xlim(-15, 300)
+    ax.set_xlim(-5, 305)
     ax.set_ylim(-9, 80)
+    ax.set_xticks([0, 50, 100, 150, 200, 250, 300])
     gx = np.linspace(0, 1, 200)[None, :, None]
     quad = np.zeros((1, 200, 4))
     quad[..., :3] = matplotlib.colors.to_rgb(tint(TEAL, 0.55))
@@ -593,19 +615,20 @@ def fig_speed():
               aspect="auto", zorder=0)
     ax.text(10, 24, "better", fontsize=13, fontweight="bold",
             color=darken(TEAL), alpha=0.75, ha="left")
-    ax.annotate("", xy=(6, 3), xytext=(28, 16),
-                arrowprops=dict(arrowstyle="-|>", color=darken(TEAL), lw=1.6))
+
 
     # label boxes in data coords (x-ms, y-%, ha): fanned around the
     # clustered bottom-left points so nothing collides
-    labels = {
-        "Scotoma-small v1": (34, -3.0, "left"),
-        "OpenMed-small @0.02": (2, 9.5, "left"),
-        "Stanford @0.10": (44, 1.8, "left"),
-        "OpenMed-large @0.10": (225, 4.5, "left"),
-        "ai4privacy en": (114, 54, "left"),
-        "ai4privacy cat": (114, 64, "left"),
-        "iiiorg/piiranha-v1": (114, 73, "left"),
+    def fmt_mb(mb):
+        return f"{mb/1000:.2f} GB" if mb > 900 else f"{mb:.0f} MB"
+    labels = {  # name -> (x, y, ha) for a label that includes model size
+        "Scotoma-small v1": (60, 8.5, "left"),
+        "OpenMed-small @0.02": (52, 16, "left"),
+        "Stanford @0.10": (85, 12, "left"),
+        "OpenMed-large @0.10": (215, 6.5, "left"),
+        "ai4privacy en": (120, 50, "left"),
+        "ai4privacy cat": (122, 62.5, "left"),
+        "iiiorg/piiranha-v1": (122, 74, "left"),
     }
     for name, x, y, mb, col in pts:
         s = 90 + np.sqrt(mb) * 9
@@ -618,20 +641,14 @@ def fig_speed():
                    edgecolor=darken(col, 0.75), linewidth=1.4, zorder=3)
         lx, ly, ha = labels[name]
         ax.plot([x, lx], [y, ly], color="#c8ccd0", lw=0.7, zorder=2)
-        ax.text(lx, ly, name, ha=ha, va="center", fontsize=8.5,
-                color=darken(col, 0.8), fontweight="bold", zorder=4)
+        ax.text(lx, ly, f"{name} · {fmt_mb(mb)}", ha=ha, va="center",
+                fontsize=8.5, color=darken(col, 0.8), fontweight="bold",
+                zorder=4)
 
     ax.set_xlabel("ms per note (CPU)", fontsize=9.5, color=INK)
     ax.set_ylabel("leaks, % of notes", fontsize=9.5, color=INK)
     style_ax(ax)
 
-    card(fig, (0.755, 0.055, 0.218, 0.80))
-    fig.text(0.775, 0.78, "model size", fontsize=9.5, fontweight="bold",
-             color=INK)
-    fig.text(0.775, 0.55,
-             "Scotoma 172 MB int8\nOpenMed-L 1.74 GB fp32\n"
-             "piiranha 1.11 GB\nai4privacy 0.60 GB",
-             fontsize=8, color=SUB)
     save(fig, "speed_vs_leaks.png")
 
 
@@ -701,6 +718,7 @@ def fig_progress():
         ax.set_position([0.075 + i * 0.485, 0.115, 0.395, 0.60])
         xs = np.arange(len(rows))
         w = 0.34
+        xlabels = []
         for x, (label, n, o, m, verdict) in zip(xs, rows):
             ro, rm = leak_rate(o), leak_rate(m)
             vbar(ax, x - w / 2, ro, w, TEAL)
@@ -712,15 +730,13 @@ def fig_progress():
                     va="bottom", fontsize=8, fontweight="bold",
                     color=darken(AMBER))
             txt, col = vstyle[verdict]
-            ax.text(x, -0.52, f"{label} · n={n:,}", ha="center", va="top",
-                    fontsize=8.5, color=INK, fontweight="bold")
-            ax.text(x, -0.85, txt + ("  " + pnote[setname]
-                                     if verdict == "win" else ""),
-                    ha="center", va="top", fontsize=8, color=darken(col),
-                    fontweight="bold")
+            tail = f"{txt} {pnote[setname]}" if verdict == "win" else txt
+            xlabels.append(f"{label} · n={n:,}\n{tail}")
         ax.set_xlim(-0.6, 2.6)
-        ax.set_ylim(-1.15, 2.35)
-        ax.set_xticks([])
+        ax.set_ylim(0, 2.35)
+        ax.set_yticks([0, 1, 2])
+        ax.set_xticks(xs)
+        ax.set_xticklabels(xlabels, fontsize=8.5, color=INK)
         ax.set_title(setname, loc="left", fontsize=10, fontweight="bold",
                      color=INK, pad=6)
         ax.set_ylabel("leaks, %", fontsize=9, color=INK)
@@ -765,8 +781,8 @@ def fig_categories():
                          "scored once · clin3, 7,108 notes · share of planted "
                          "identifiers touched (100 = none missed) · OML = "
                          "OpenMed-PII-SuperClinical-Large")
-    card(fig, (0.028, 0.055, 0.945, 0.80))
-    ax = fig.add_axes([0.215, 0.10, 0.60, 0.575])
+    card(fig, (0.028, 0.055, 0.945, 0.795))
+    ax = fig.add_axes([0.215, 0.095, 0.60, 0.625])
     ax.set_facecolor("none")
     ax.set_xlim(-0.5, len(syscols) - 0.5)
     ax.set_ylim(-0.5, len(cats) - 0.5)
@@ -923,18 +939,18 @@ def fig_pipeline():
 
     # outputs container
     ax.add_patch(FancyBboxPatch(
-        (0.795, 0.035), 0.175, 0.475,
+        (0.795, 0.035), 0.175, 0.44,
         boxstyle="round,pad=0,rounding_size=0.016",
         facecolor="white", edgecolor="#d9dde1", linewidth=1.1,
         linestyle="--", zorder=2))
-    ax.text(0.8825, 0.46, "outputs", ha="center", fontsize=8,
+    ax.text(0.8825, 0.435, "outputs", ha="center", fontsize=8,
             fontweight="bold", color=SUB, zorder=4)
     outputs = ["[NAME_1] tags", "realistic stand-ins",
-               "black boxes on files", "protect & unlock"]
-    oy = [0.35, 0.25, 0.15, 0.05]
+               "black boxes on files"]
+    oy = [0.30, 0.175, 0.05]
     for label, y in zip(outputs, oy):
         box(0.808, y, 0.149, 0.088, label, fc="#f7f8f9", ec="#d9dde1", fs=8)
-    arrow(0.8825, 0.545, 0.8825, 0.505)
+    arrow(0.8825, 0.545, 0.8825, 0.485)
 
     # privacy band with lock
     band_y = 0.055
