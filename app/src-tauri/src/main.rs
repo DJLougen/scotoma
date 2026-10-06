@@ -287,10 +287,9 @@ fn ocr_then_review(app: &AppHandle, verb: &'static str) {
         return notify(app, if verb == "ocr" { "The clipboard has no text to clean." } else { "Screen capture is only available on macOS for now." });
     };
     if state.capturing.swap(true, Ordering::SeqCst) { return; }
-    // Get the (always-on-top) window out of the way so it neither hides what
-    // the user wants to capture nor catches the selection clicks.
-    let reshow = verb == "capture" && app.get_webview_window("main").map(|w| w.is_visible().unwrap_or(false)).unwrap_or(false);
-    if reshow { if let Some(w) = app.get_webview_window("main") { let _ = w.hide(); } }
+    // The window stays put: the system region picker draws over every window,
+    // so the user can drag anywhere (move the window if it covers the target).
+    let reshow = false;
     let app = app.clone();
     std::thread::spawn(move || {
         let mut t0 = Instant::now();
@@ -770,10 +769,10 @@ fn main() {
             status, analyze, pending, preview, approve, capture, dictate, hide_window, read_clipboard, copy_text, restore_text, clear_vault, set_settings, open_document, save_document
         ])
         .setup(|app| {
-            // A menu-bar utility: no Dock icon, and the overlay can sit above
-            // full-screen apps.
+            // A regular app: Dock icon, Cmd-Tab, and its own menu bar (Tauri's
+            // default macOS menu), plus the tray icon and global hotkeys.
             #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            app.set_activation_policy(tauri::ActivationPolicy::Regular);
 
             let handle = app.handle().clone();
             let state = app.state::<AppState>();
@@ -880,8 +879,15 @@ fn main() {
                 let _ = window.hide();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running Scrub N Paste");
+        .build(tauri::generate_context!())
+        .expect("error while building Scrub N Paste")
+        .run(|app, event| {
+            // Clicking the Dock icon brings back a closed (hidden) window.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event { show_window(app); }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        });
 }
 
 #[cfg(test)]

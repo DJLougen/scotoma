@@ -22,7 +22,7 @@
         "visibleOnAllWorkspaces": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "skipTaskbar": true
+        "skipTaskbar": false
       }
     ],
     "security": {
