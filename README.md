@@ -12,6 +12,9 @@ and the model on Hugging Face ([DJLougen/scotoma-small](https://huggingface.co/D
 keep the engine's name. Nothing leaves the machine. The only socket the app ever opens is an
 optional, opt-in loopback connection to your own speech server.
 
+<p align="center"><img src="docs/img/demo.gif" alt="Capture a region of a fictional clinical note; Scrub N Paste shows it with names, places, age and date replaced by tags, ready to copy" width="900"><br>
+<sub>Capture a region (⌘⌥D or <b>Capture</b>) → on-device OCR → names, places, the 90+ age and the date are tagged, and one dashed "possible" is left for you to decide. Fictional note. <a href="docs/demo.mp4">Full clip (17 s, mp4)</a>. Recorded on an earlier build, when the window was still titled "Scotoma".</sub></p>
+
 Apache-2.0. See [NOTICE](NOTICE) for the data and model credits.
 
 <p align="center"><img src="docs/img/hero.png" alt="Sealed 3: 2 leaked notes out of 7,108 vs 26 for the strongest competitor" width="1000"></p>
@@ -130,6 +133,12 @@ hides itself after **Copy cleaned text** so the paste lands where you were.
 | Voice, your model | `⌘⌥V` to start, again to stop, or **Dictate** | Records 16 kHz mono WAV, sends it to your speech model |
 | Voice, Superwhisper | `⌘⌥N`, then dictate | Opens the overlay empty and focused; anything that types into a field lands in it |
 | Blank note | `⌘⌥N` | Fresh overlay |
+
+<p align="center">
+<img src="docs/img/app_capture.png" alt="dragging a capture region over a fictional note" width="440">&nbsp;
+<img src="docs/img/app_review.png" alt="review window: original with highlights on the left, tagged text on the right, counts by type" width="440"><br>
+<sub>Left: drag over any text on screen. Right: the review window. Solid highlights are replaced, the dashed one ("Riverdale") fell below the threshold, and you click it to redact.</sub>
+</p>
 
 **Speech model.** Set it in the side panel. Fastest is a server that keeps the model loaded:
 `http://127.0.0.1:8080/inference` (whisper.cpp `whisper-server`) or any OpenAI-style
