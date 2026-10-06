@@ -19,7 +19,7 @@ thumbnail: https://huggingface.co/DJLougen/scotoma-small/resolve/main/assets/her
 
 **Support on [Ko-fi](https://ko-fi.com/djlougen) or X Money: [@DJLougen](https://x.com/DJLougen)**
 
-`scotoma-small` is the token classifier inside the Scotoma engine of [Scrub N Paste](https://github.com/DJLougen/scotoma), an on-device clinical
+`scotoma-small` is the token classifier inside the Scotoma engine of [Scrub N Paste](https://github.com/DJLougen/scrub-n-paste), an on-device clinical
 PHI redaction app for macOS (Tauri + Rust). It is
 `microsoft/deberta-v3-small` (141M parameters, 98M of which are the embedding
 table) fine-tuned to tag 21 HIPAA Safe-Harbor-style identifier categories, then
@@ -72,7 +72,7 @@ local ONNX Runtime; there is no network path in the inference code.
 
 ### In Scrub N Paste
 
-[Scrub N Paste](https://github.com/DJLougen/scotoma) (macOS) bundles this model. Hotkeys: ⌘⌥S redact selection/clipboard, ⌘⌥R
+[Scrub N Paste](https://github.com/DJLougen/scrub-n-paste) (macOS) bundles this model. Hotkeys: ⌘⌥S redact selection/clipboard, ⌘⌥R
 restore originals, ⌘⌥D capture a screen region and redact via on-device OCR,
 ⌘⌥N blank note, ⌘⌥V dictate. Output renders either as `[CATEGORY_N]` tags or
 as realistic stand-ins, and a review screen shows the redacted text before you
